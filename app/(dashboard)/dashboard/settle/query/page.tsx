@@ -79,7 +79,7 @@ export default function SettleQueryPage() {
         ...(defendantType && { defendant_type: defendantType })
       };
 
-      const result = await settleClient.getEstimate(request, apiKey);
+      const result = await settleClient.getEstimate(request);
       setEstimate(result);
     } catch (err: any) {
       console.error('Query failed:', err);

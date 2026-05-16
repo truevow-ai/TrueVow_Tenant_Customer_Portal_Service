@@ -33,6 +33,7 @@ export interface ValidationError {
   rule_name: string;
   message: string;
   severity: "error" | "warning";
+  suggestion?: string;
   location?: {
     line?: number;
     column?: number;

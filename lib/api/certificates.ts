@@ -54,7 +54,7 @@ export async function getCertificates(
   if (!authToken && typeof window === 'undefined') {
     try {
       // Dynamic import for server-side auth
-      const clerkServer = await import('@clerk/nextjs/server')
+      const clerkServer = await import(/* webpackIgnore: true */ '@clerk/nextjs/server')
       if ('auth' in clerkServer) {
         const authResult = await (clerkServer as any).auth()
         if (authResult?.getToken) {
@@ -108,7 +108,7 @@ export async function getCertificate(
   let authToken = token;
   if (!authToken && typeof window === 'undefined') {
     try {
-      const clerkServer = await import('@clerk/nextjs/server')
+      const clerkServer = await import(/* webpackIgnore: true */ '@clerk/nextjs/server')
       if ('auth' in clerkServer) {
         const authResult = await (clerkServer as any).auth()
         if (authResult?.getToken) {
@@ -160,7 +160,7 @@ export async function getCertificateByInteraction(
   let authToken = token;
   if (!authToken && typeof window === 'undefined') {
     try {
-      const clerkServer = await import('@clerk/nextjs/server')
+      const clerkServer = await import(/* webpackIgnore: true */ '@clerk/nextjs/server')
       if ('auth' in clerkServer) {
         const authResult = await (clerkServer as any).auth()
         if (authResult?.getToken) {

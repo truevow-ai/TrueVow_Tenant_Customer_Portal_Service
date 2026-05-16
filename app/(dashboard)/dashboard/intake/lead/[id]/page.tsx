@@ -30,6 +30,7 @@ interface Lead {
   recording_duration: number | null;
   transcription: string | null;
   transcription_url: string | null;
+  qualification_grade: string | null;
   unlocked_at: string | null;
   unlocked_by: string | null;
   booking_date: string | null;

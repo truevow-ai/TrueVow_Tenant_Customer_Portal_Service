@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { AlertCircle, History, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
-import { draftClient, ValidationHistoryItem } from '@/lib/api/draft-client';
+import { draftClient, ValidationHistory } from '@/lib/api/draft-client';
 import { useTenant } from '@/hooks/useTenant';
 
 function formatDate(dateStr: string): string {
@@ -17,7 +17,7 @@ function formatLabel(key: string): string {
 
 export default function LeverageHistoryPage() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
-  const [items, setItems] = useState<ValidationHistoryItem[]>([]);
+  const [items, setItems] = useState<ValidationHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +26,7 @@ export default function LeverageHistoryPage() {
     (async () => {
       try {
         const res = await draftClient.getHistory(tenantId, { limit: 50 });
-        setItems(res.items);
+        setItems(res.validations);
       } catch {
         setError('Could not load validation history. Please verify the LEVERAGE service is running.');
       } finally { setLoading(false); }
@@ -91,9 +91,9 @@ export default function LeverageHistoryPage() {
               {items.map(item => (
                 <tr key={item.validation_id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                   <td className="px-5 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(item.created_at)}</td>
-                  <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{formatLabel(item.document_type)}</td>
+                  <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{formatLabel(item.document_type ?? '')}</td>
                   <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300">{item.jurisdiction}</td>
-                  <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{formatLabel(item.practice_area)}</td>
+                  <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{formatLabel(item.practice_area ?? '')}</td>
                   <td className="px-5 py-3">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${item.is_valid ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'}`}>
                       {item.is_valid ? 'Compliant' : 'Non-Compliant'}

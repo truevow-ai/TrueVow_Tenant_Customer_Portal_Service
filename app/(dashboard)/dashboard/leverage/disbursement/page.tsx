@@ -39,6 +39,7 @@ function computeDisbursement(form: DisbursementRequest & { custom_items: CustomI
       subtotal_costs: totalDisb,
       attorney_fees: attorneyFee ?? 0,
       total_deductions: totalDisb + (attorneyFee ?? 0),
+      net_to_client: netToClient ?? 0,
     },
     total_disbursement: totalDisb,
     net_to_client: netToClient,
