@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -27,8 +27,8 @@ const MOCK_REPORTS: SettlementReport[] = [
       { text: 'Medical treatment not yet extensive', positive: false },
     ],
     risk_adjustments: [
-      { condition: 'If surgery occurs', impact: 'Typical range increases to \+' },
-      { condition: 'If liability contested', impact: 'Median range drops to \-\' },
+      { condition: 'If surgery occurs', impact: 'Typical range increases to $35k+' },
+      { condition: 'If liability contested', impact: 'Median range drops to $9k-$12k' },
     ],
     insurer_behavior: null,
   },
@@ -40,12 +40,12 @@ const MOCK_REPORTS: SettlementReport[] = [
     sample_size: 312, low: 38000, typical_low: 52000, typical_high: 78000, upper: 95000,
     factors: [
       { text: 'Clear rear-end liability', positive: true },
-      { text: 'Policy limits known (\)', positive: true },
+      { text: 'Policy limits known ($100k)', positive: true },
       { text: 'Soft tissue + fracture - moderate severity', positive: false },
     ],
     risk_adjustments: [
-      { condition: 'If MRI shows disc herniation', impact: 'Median increases to \-\' },
-      { condition: 'If surgery required', impact: 'Upper range extends to \+' },
+      { condition: 'If MRI shows disc herniation', impact: 'Median increases to $85k-$110k' },
+      { condition: 'If surgery required', impact: 'Upper range extends to $150k+' },
     ],
     insurer_behavior: { insurer: 'State Farm', typical_offer_pct: '30-50%', avg_rounds: 3, final_pct: '88-95%' },
   },
@@ -60,7 +60,7 @@ const MOCK_REPORTS: SettlementReport[] = [
       { text: 'Minor injury reduces upside', positive: false },
     ],
     risk_adjustments: [
-      { condition: 'If disfigurement documented', impact: 'Typical range increases to \-\' },
+      { condition: 'If disfigurement documented', impact: 'Typical range increases to $15k-$25k' },
     ],
     insurer_behavior: null,
   },

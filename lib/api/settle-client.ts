@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SETTLE Service API Client for Customer Portal
  * Routes all requests through server-side Next.js proxy routes.
  * API keys are never exposed to the browser.
@@ -31,6 +31,18 @@ export interface EstimateResponse {
   jurisdiction: string;
   case_type: string;
   created_at: string;
+
+  // Cohort V-front (2026-05-07) - additive fields for pilot-mode + Year-2 guardrails.
+  // Backend EstimateResponse Pydantic (app/models/case_bank.py) is the source of
+  // truth. These are optional so existing consumers (settle/query/page.tsx) still
+  // typecheck. Future cohort will fully align this interface with backend.
+  // ADR S-1.1 ("Never Sell Empty Dashboards") + ADR S-2 v2 (pilot-mode gate).
+  is_pilot_response?: boolean;
+  own_case_only?: boolean;
+  suppressed_features?: string[];
+  aggregation_level?: 'county' | 'state' | 'none';
+  n_county?: number;
+  n_state?: number;
 }
 
 export interface ContributionRequest {
