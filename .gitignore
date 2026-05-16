@@ -1,0 +1,55 @@
+# Dependencies
+node_modules
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Next.js
+/.next/
+/out/
+
+# Production
+/build
+
+# Misc
+.DS_Store
+*.pem
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local env files
+.env*.local
+.env
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+
+# Cohort V-front additions (2026-05-07) - secret protection + dev artifacts
+# CRITICAL: .env.backup* must be ignored (contains live credentials)
+.env.backup*
+.qoder/
+test-results/
+seed-output.txt
+diff_output.txt
+temp_*.py
+temp_*.json
+check_*.py
+disbursement_calculator_*.png
+screenshot_*.png

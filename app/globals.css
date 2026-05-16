@@ -1,0 +1,247 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Slack-Inspired Design System - Light Mode */
+    
+    /* Sidebar Colors (consistent across themes) */
+    --sidebar-bg: 282 64% 20%; /* #4A154B - Slack Purple (Aubergine) */
+    --sidebar-text: 0 0% 100%; /* White text */
+    --sidebar-text-muted: 0 0% 88%; /* Brighter muted white for light mode - feels airier */
+    --sidebar-hover: 282 64% 25%; /* Slightly lighter purple */
+    --sidebar-active: 206 74% 37%; /* #1264A3 - Blue highlight */
+    
+    /* Primary Colors */
+    --primary: 206 74% 37%; /* #1264A3 - Blue (matches active state) */
+    --primary-foreground: 0 0% 100%; /* White */
+    --primary-hover: 206 74% 32%; /* Darker blue on hover */
+    
+    /* Background Colors - Light Mode */
+    --background: 0 0% 97%; /* #F8F8F8 - Light gray (Slack-style) */
+    --foreground: 0 0% 13%; /* #222222 - Dark text */
+    --background-secondary: 0 0% 95%; /* #F2F2F2 - Slightly darker gray */
+    
+    /* Card & Surface Colors */
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 0 0% 13%; /* Dark text */
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 13%;
+    
+    /* Secondary Colors */
+    --secondary: 0 0% 96%; /* Light gray */
+    --secondary-foreground: 0 0% 13%;
+    
+    /* Muted Colors */
+    --muted: 0 0% 96%; /* Light gray background */
+    --muted-foreground: 0 0% 45%; /* Gray text */
+    
+    /* Accent Colors */
+    --accent: 206 74% 95%; /* Very light blue */
+    --accent-foreground: 206 74% 37%; /* Blue text */
+    
+    /* Semantic Colors */
+    --success: 142 71% 45%; /* Green */
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%; /* Amber */
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%; /* Red */
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Border & Input */
+    --border: 0 0% 90%; /* Light gray */
+    --input: 0 0% 90%;
+    --ring: 206 74% 37%; /* Blue focus ring */
+    
+    /* Chart Colors */
+    --chart-1: 253 28% 15%; /* Purple */
+    --chart-2: 206 74% 37%; /* Blue */
+    --chart-3: 142 71% 45%; /* Green */
+    --chart-4: 38 92% 50%; /* Amber */
+    --chart-5: 0 84% 60%; /* Red */
+    
+    /* Border Radius */
+    --radius-sm: 0.5rem;
+    --radius: 0.75rem;
+    --radius-lg: 1rem;
+  }
+
+  .dark {
+    /* Slack-Inspired Design System - Dark Mode */
+    
+    /* Sidebar Colors - DARKER purple for dark mode */
+    --sidebar-bg: 282 64% 12%; /* #2D0D2E - Deeper aubergine for dark mode */
+    --sidebar-text: 0 0% 100%;
+    --sidebar-text-muted: 0 0% 70%;
+    --sidebar-hover: 282 64% 16%; /* Slightly lighter on hover */
+    --sidebar-active: 206 74% 30%; /* Dimmer blue highlight for dark mode */
+    
+    /* Primary Colors */
+    --primary: 206 74% 37%; /* #1264A3 - Blue */
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 206 74% 42%; /* Lighter blue on hover in dark mode */
+    
+    /* Background Colors - Dark Mode */
+    --background: 0 0% 10%; /* #1A1A1A - Dark Charcoal */
+    --foreground: 0 0% 95%; /* Light text */
+    --background-secondary: 0 0% 14%; /* Slightly lighter charcoal */
+    
+    /* Card & Surface Colors */
+    --card: 0 0% 14%; /* Dark surface */
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 14%;
+    --popover-foreground: 0 0% 95%;
+    
+    /* Secondary Colors */
+    --secondary: 0 0% 18%; /* Dark gray */
+    --secondary-foreground: 0 0% 95%;
+    
+    /* Muted Colors */
+    --muted: 0 0% 18%; /* Dark gray background */
+    --muted-foreground: 0 0% 65%; /* Lighter gray text */
+    
+    /* Accent Colors */
+    --accent: 206 74% 20%; /* Dark blue */
+    --accent-foreground: 206 74% 70%; /* Light blue text */
+    
+    /* Semantic Colors (slightly adjusted for dark mode) */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Border & Input */
+    --border: 0 0% 25%; /* Lighter border in dark mode */
+    --input: 0 0% 25%;
+    --ring: 206 74% 37%;
+    
+    /* Chart Colors (same as light mode) */
+    --chart-1: 253 28% 15%;
+    --chart-2: 206 74% 37%;
+    --chart-3: 142 71% 45%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 0 84% 60%;
+  }
+
+  .neutral {
+    /* ChatGPT-Inspired Design System - Neutral Mode */
+    /* Light grey/white palette with black font color */
+    
+    /* Sidebar Colors - Light grey like ChatGPT sidebar */
+    --sidebar-bg: 220 13% 95%; /* #F0F0F2 - Light grey sidebar */
+    --sidebar-text: 0 0% 10%; /* Near black text */
+    --sidebar-text-muted: 0 0% 40%; /* Muted dark text */
+    --sidebar-hover: 220 13% 88%; /* Slightly darker grey on hover */
+    --sidebar-active: 220 13% 82%; /* Darker grey for active, no blue */
+    
+    /* Primary Colors */
+    --primary: 0 0% 10%; /* Near black */
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 0 0% 20%;
+    
+    /* Background Colors - ChatGPT Light Grey */
+    --background: 0 0% 96%; /* #F7F7F8 - Light grey */
+    --foreground: 0 0% 5%; /* #0D0D0D - Near black text */
+    --background-secondary: 0 0% 93%; /* #ECECEC */
+    
+    /* Card & Surface Colors - Pure White */
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 0 0% 5%; /* Black text */
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 5%;
+    
+    /* Secondary Colors */
+    --secondary: 0 0% 94%;
+    --secondary-foreground: 0 0% 10%;
+    
+    /* Muted Colors */
+    --muted: 0 0% 94%;
+    --muted-foreground: 0 0% 45%; /* #6E6E80 */
+    
+    /* Accent Colors */
+    --accent: 0 0% 94%;
+    --accent-foreground: 0 0% 10%;
+    
+    /* Semantic Colors */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Border & Input */
+    --border: 0 0% 90%; /* #E5E5E5 */
+    --input: 0 0% 90%;
+    --ring: 0 0% 10%;
+    
+    /* Chart Colors */
+    --chart-1: 0 0% 10%;
+    --chart-2: 206 74% 37%;
+    --chart-3: 142 71% 45%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 0 84% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "liga" 1, "calt" 1; /* Enable ligatures and contextual alternates */
+  }
+  
+  /* Smooth theme transitions */
+  .theme-transition {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  }
+
+}
+
+/* ================================================================
+   ACCESSIBILITY — Placed OUTSIDE all @layer blocks so this wins
+   over Tailwind's @layer utilities.
+
+   WCAG AA minimum: 4.5:1 contrast ratio for normal text on white.
+   text-gray-400 (#9CA3AF) = 2.7:1 → FAILS
+   text-gray-500 (#6B7280) = 4.6:1 → marginal on small text
+
+   Fix: remap both to readable values in light/neutral modes.
+   Dark mode untouched — gray-400 on dark bg = 5.4:1 (passes).
+   ================================================================ */
+html:not(.dark) .text-gray-400 {
+  color: rgb(75 85 99) !important; /* gray-600 — 7.0:1 on white ✓ */
+}
+html:not(.dark) .text-gray-500 {
+  color: rgb(55 65 81) !important; /* gray-700 — 10.7:1 on white ✓ */
+}
+
+@layer components {
+  /* Sidebar Styling */
+  .sidebar {
+    background-color: hsl(var(--sidebar-bg));
+    color: hsl(var(--sidebar-text));
+  }
+  
+  .sidebar-item {
+    color: hsl(var(--sidebar-text-muted));
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  
+  .sidebar-item:hover {
+    background-color: hsl(var(--sidebar-hover));
+    color: hsl(var(--sidebar-text));
+  }
+  
+  .sidebar-item-active {
+    background-color: hsl(var(--sidebar-active));
+    color: hsl(var(--sidebar-text));
+  }
+}
+
