@@ -271,21 +271,21 @@ export default function SettleQueryPage() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Estimated Range</h3>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center">
-                    <div className="text-sm text-gray-600 mb-1">Low</div>
+                    <div className="text-sm text-gray-600 mb-1">25th pctl</div>
                     <div className="text-xl font-bold text-gray-900">
-                      {formatCurrency(estimate.settlement_range.low)}
+                      {formatCurrency(estimate.percentile_25)}
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-sm text-gray-600 mb-1">Mid</div>
+                    <div className="text-sm text-gray-600 mb-1">Median</div>
                     <div className="text-2xl font-bold text-primary-600">
-                      {formatCurrency(estimate.settlement_range.mid)}
+                      {formatCurrency(estimate.median)}
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-sm text-gray-600 mb-1">High</div>
+                    <div className="text-sm text-gray-600 mb-1">75th pctl</div>
                     <div className="text-xl font-bold text-gray-900">
-                      {formatCurrency(estimate.settlement_range.high)}
+                      {formatCurrency(estimate.percentile_75)}
                     </div>
                   </div>
                 </div>
@@ -294,42 +294,21 @@ export default function SettleQueryPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="text-sm text-gray-600 mb-1">Confidence Level</div>
-                  <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getConfidenceColor(estimate.settlement_range.confidence_level)}`}>
-                    {estimate.settlement_range.confidence_level}
+                  <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getConfidenceColor(estimate.confidence)}`}>
+                    {estimate.confidence}
                   </div>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="text-sm text-gray-600 mb-1">Data Quality</div>
+                  <div className="text-sm text-gray-600 mb-1">Comparable Cases</div>
                   <div className="text-2xl font-bold text-gray-900">
-                    {Math.round(estimate.data_quality_score * 100)}%
+                    {estimate.n_cases} cases
                   </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="text-sm text-gray-600 mb-1">Comparable Cases</div>
-                <div className="text-2xl font-bold text-gray-900">
-                  {estimate.comparable_cases} cases
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Factors Considered</h4>
-                <div className="flex flex-wrap gap-2">
-                  {estimate.factors_considered.map((factor, idx) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium"
-                    >
-                      {factor}
-                    </span>
-                  ))}
                 </div>
               </div>
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => router.push(`/dashboard/settle/reports?estimate_id=${estimate.estimate_id}`)}
+                  onClick={() => router.push(`/dashboard/settle/reports?estimate_id=${estimate.query_id ?? ''}`)}
                   className="flex-1 bg-primary-600 text-white py-2 px-4 rounded-md hover:bg-primary-700 font-medium"
                 >
                   Generate Report
@@ -346,7 +325,7 @@ export default function SettleQueryPage() {
               </div>
 
               <div className="text-xs text-gray-500 text-center">
-                Estimate ID: {estimate.estimate_id}
+                Estimate ID: {estimate.query_id ?? 'N/A'}
               </div>
             </div>
           )}

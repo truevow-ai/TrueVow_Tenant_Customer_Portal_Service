@@ -17,32 +17,55 @@ export interface EstimateRequest {
   additional_factors?: Record<string, unknown>;
 }
 
+/**
+ * Aligned with backend EstimateResponse Pydantic (app/models/case_bank.py).
+ * Cohort V-front-2 (2026-05-17): full alignment replaces stale
+ * settlement_range / data_quality_score / factors_considered shape.
+ */
 export interface EstimateResponse {
-  estimate_id: string;
-  settlement_range: {
-    low: number;
-    mid: number;
-    high: number;
-    confidence_level: string;
-  };
-  comparable_cases: number;
-  data_quality_score: number;
-  factors_considered: string[];
+  // Statistical ranges
+  percentile_25: number;
+  median: number;
+  percentile_75: number;
+  percentile_95: number;
+
+  // Metadata
+  n_cases: number;
+  confidence: string; // "low" | "medium" | "high" | "insufficient_data"
+
+  // Year-2 guardrails (ADR S-1.1)
+  own_case_only: boolean;
+  suppressed_features: string[];
+
+  // Aggregation tier (Option D)
+  aggregation_level: 'county' | 'state' | 'none';
+  n_county: number;
+  n_state: number;
+
+  // Pilot-mode signal (ADR S-2 v2)
+  is_pilot_response: boolean;
+
+  // Comparable cases (for report — backend returns array)
+  comparable_cases: ComparableCase[];
+
+  // Justification
+  range_justification: string | null;
+
+  // Query metadata
+  query_id: string | null;
+  queried_at: string;
+  response_time_ms: number | null;
+}
+
+export interface ComparableCase {
   jurisdiction: string;
   case_type: string;
-  created_at: string;
-
-  // Cohort V-front (2026-05-07) - additive fields for pilot-mode + Year-2 guardrails.
-  // Backend EstimateResponse Pydantic (app/models/case_bank.py) is the source of
-  // truth. These are optional so existing consumers (settle/query/page.tsx) still
-  // typecheck. Future cohort will fully align this interface with backend.
-  // ADR S-1.1 ("Never Sell Empty Dashboards") + ADR S-2 v2 (pilot-mode gate).
-  is_pilot_response?: boolean;
-  own_case_only?: boolean;
-  suppressed_features?: string[];
-  aggregation_level?: 'county' | 'state' | 'none';
-  n_county?: number;
-  n_state?: number;
+  injury_category: string[];
+  primary_diagnosis: string | null;
+  medical_bills: number;
+  outcome_range: string;
+  outcome_type: string;
+  contributed_at: string;
 }
 
 export interface ContributionRequest {

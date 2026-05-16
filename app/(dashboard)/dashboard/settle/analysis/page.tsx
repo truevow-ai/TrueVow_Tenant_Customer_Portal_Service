@@ -8,6 +8,8 @@ import { ChevronDown, ChevronUp, AlertCircle, Info, Plus, Lock, Loader2, CreditC
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { useTenant } from '@/hooks/useTenant';
 import { useCompanyToast } from '@/hooks/useCompanyToast';
+import { settleClient, type EstimateResponse } from '@/lib/api/settle-client';
+import { PilotModeBanner } from '@/components/settle/PilotModeBanner';
 
 //  Mock case data  will come from INTAKE API 
 const MOCK_CASES: Record<string, {
@@ -20,22 +22,6 @@ const MOCK_CASES: Record<string, {
   'case-002': { id: 'case-002', client_name: 'Marcus Webb',  incident: 'Auto Accident',       county: 'Hillsborough County, FL', injury_severity: 'Moderate', medical_specials: 32000, liability_strength: 'Clear liability, rear-end',            policy_limit_band: '$100k',  insurer: 'State Farm',   litigation_stage: 'Pre-suit'  },
   'case-003': { id: 'case-003', client_name: 'Diana Reyes',  incident: 'Dog Bite',            county: 'Miami-Dade County, FL',   injury_severity: 'Minor',    medical_specials: 4100,  liability_strength: 'Strict liability state',               policy_limit_band: '$25k',   insurer: 'Allstate',     litigation_stage: 'Pre-suit'  },
   'case-004': { id: 'case-004', client_name: 'Ronald Hatch', incident: 'Premises Liability',  county: 'Orange County, FL',       injury_severity: 'Moderate', medical_specials: 14700, liability_strength: 'Contested — no prior notice documented', policy_limit_band: '$50k',   insurer: 'Progressive',  litigation_stage: 'Suit filed' },
-};
-
-// ─── Mock settlement intelligence output ─────────────────────────────────
-const MOCK_INTEL: Record<string, {
-  percentile_25: number; median: number; percentile_75: number;
-  sample_size: number; jurisdiction_weight: number; confidence_score: number;
-  confidence_label: string; confidence_reason: string;
-  factors: { text: string; positive: boolean }[];
-  risk_adjustments: { condition: string; impact: string }[];
-  insurer_behavior: { label: string; value: string } | null;
-  insufficient_data: boolean;
-}> = {
-  'case-001': { percentile_25: 9000, median: 14500, percentile_75: 21000, sample_size: 146, jurisdiction_weight: 68, confidence_score: 7, confidence_label: 'Moderate', confidence_reason: 'Limited policy limit data reduces precision', factors: [{ text: 'Property owner awareness established', positive: true }, { text: 'Incident occurred recently', positive: true }, { text: 'Medical treatment not yet extensive', positive: false }], risk_adjustments: [{ condition: 'If surgery occurs', impact: 'Typical range increases to $35k+' }, { condition: 'If liability contested', impact: 'Median range drops to $9k$12k' }], insurer_behavior: { label: 'Unknown insurer', value: 'Insufficient data for this insurer.' }, insufficient_data: false },
-  'case-002': { percentile_25: 45000, median: 68000, percentile_75: 95000, sample_size: 312, jurisdiction_weight: 82, confidence_score: 8, confidence_label: 'High', confidence_reason: 'Strong sample size and clear liability', factors: [{ text: 'Clear rear-end liability', positive: true }, { text: 'Policy limits known ($100k)', positive: true }, { text: 'Moderate injuries  soft tissue + fracture', positive: false }], risk_adjustments: [{ condition: 'If MRI shows disc herniation', impact: 'Median increases to $85k$110k' }, { condition: 'If surgery required', impact: 'Upper range extends to $150k+' }], insurer_behavior: { label: 'State Farm', value: 'Typical initial offer: 3045% of median. Average 3 negotiation rounds. Final settlement typically 8895% of median.' }, insufficient_data: false },
-  'case-003': { percentile_25: 5500, median: 9200, percentile_75: 14000, sample_size: 18, jurisdiction_weight: 55, confidence_score: 4, confidence_label: 'Low', confidence_reason: 'Sample size below threshold  expanding to state level', factors: [{ text: 'Florida strict liability jurisdiction', positive: true }, { text: 'Minor injury reduces upside', positive: false }], risk_adjustments: [{ condition: 'If disfigurement documented', impact: 'Typical range increases to $15k$25k' }], insurer_behavior: null, insufficient_data: false },
-  'case-004': { percentile_25: 0, median: 0, percentile_75: 0, sample_size: 9, jurisdiction_weight: 40, confidence_score: 2, confidence_label: 'Insufficient', confidence_reason: 'Fewer than 20 comparable cases — analysis expanded to state level', factors: [], risk_adjustments: [], insurer_behavior: null, insufficient_data: true },
 };
 
 // ─── SETTLE Query Button Component ──────────────────────────────────────────
@@ -280,7 +266,66 @@ function CaseAnalysisInner() {
   } : null;
 
   const caseData = !isLeverageImport ? (MOCK_CASES[caseId] || null) : null;
-  const intel = !isLeverageImport ? (MOCK_INTEL[caseId] || null) : null;
+
+  // Live settlement intelligence from backend (fetched after billing flow succeeds)
+  const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
+  const [estimateLoading, setEstimateLoading] = useState(false);
+  const [estimateError, setEstimateError] = useState<string | null>(null);
+
+  // When the billing consume flow succeeds, fetch the real estimate from backend
+  useEffect(() => {
+    if (queryState !== 'ready') return;
+    if (estimate) return; // already fetched
+    let cancelled = false;
+
+    async function fetchEstimate() {
+      setEstimateLoading(true);
+      setEstimateError(null);
+      try {
+        // Build request from available case data
+        const request = caseData
+          ? {
+              jurisdiction: caseData.county,
+              case_type: caseData.incident,
+              injury_category: [caseData.injury_severity],
+              severity: caseData.injury_severity,
+              liability_strength: caseData.liability_strength,
+            }
+          : leverageData
+          ? {
+              jurisdiction: searchParams.get('jurisdiction') || '',
+              case_type: searchParams.get('case_type') || 'Personal Injury',
+              injury_category: [searchParams.get('injury_category') || 'General'],
+              additional_factors: {
+                medical_bills: leverageData.medical_bills,
+                lost_wages: leverageData.lost_wages,
+                gross_damages: leverageData.gross_damages,
+                liability_pct: leverageData.liability_pct,
+              },
+            }
+          : null;
+
+        if (!request) {
+          setEstimateError('Missing case data for analysis');
+          return;
+        }
+
+        const result = await settleClient.getEstimate(request);
+        if (!cancelled) {
+          setEstimate(result);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setEstimateError(err instanceof Error ? err.message : 'Failed to fetch estimate');
+        }
+      } finally {
+        if (!cancelled) setEstimateLoading(false);
+      }
+    }
+
+    fetchEstimate();
+    return () => { cancelled = true; };
+  }, [queryState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [inputsExpanded, setInputsExpanded] = useState(true);
   const [offers, setOffers] = useState<{ label: string; amount: string }[]>([
@@ -393,137 +438,174 @@ function CaseAnalysisInner() {
           <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">2. Settlement Intelligence</span>
         </div>
 
-        {isLeverageImport ? (
-          <div className="px-5 py-6 space-y-4">
-            {!settleEnabled ? (
+        {/* Gate: feature not enabled */}
+        {!settleEnabled ? (
+          <div className="px-5 py-6">
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3 flex items-start gap-3">
+              <Lock className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">SETTLE is not included in your current plan</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                  Upgrade to Growth tier or add the SETTLE Intelligence add-on to run settlement queries and generate professional reports.
+                </p>
+                <Link
+                  href="/dashboard/billing"
+                  className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-amber-800 dark:text-amber-300 underline"
+                >
+                  View Plans & Pricing
+                </Link>
+              </div>
+            </div>
+          </div>
+
+        ) : estimate ? (
+          /* ─── Live intelligence from backend ─────────────────────── */
+          <div className="px-5 py-5 space-y-5">
+            {/* Pilot-mode disclosure banner */}
+            {estimate.is_pilot_response && (
+              <PilotModeBanner
+                nCases={estimate.n_cases}
+                stateLabel={caseData?.county.split(',')[1]?.trim()}
+              />
+            )}
+
+            {/* own_case_only guardrail */}
+            {estimate.own_case_only && (
               <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3 flex items-start gap-3">
-                <Lock className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">SETTLE is not included in your current plan</p>
+                  <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Limited data available</p>
                   <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                    Upgrade to Growth tier or add the SETTLE Intelligence add-on to run settlement queries and generate professional reports.
+                    Insufficient comparable cases to produce aggregate statistics.
+                    Showing your own case data only.
                   </p>
-                  <Link
-                    href="/dashboard/billing"
-                    className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-amber-800 dark:text-amber-300 underline"
-                  >
-                    View Plans & Pricing
-                  </Link>
                 </div>
               </div>
-            ) : (
-              <>
-                <div className="flex items-start gap-3">
-                  <Info size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">SETTLE analysis ready</p>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Your damages data has been pre-populated. Run the analysis to see comparable settlement ranges from the SETTLE database.
-                    </p>
+            )}
+
+            {/* Settlement distribution */}
+            {!estimate.own_case_only && (
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-widest mb-3">
+                  Estimated settlement distribution
+                  {estimate.aggregation_level === 'state' && ' (statewide)'}
+                </p>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <p className="text-xs text-gray-400 mb-1">25th percentile</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{fmt(estimate.percentile_25)}</p>
+                  </div>
+                  <div className="text-center bg-gray-50 dark:bg-gray-700 rounded-lg py-2">
+                    <p className="text-xs text-gray-400 mb-1">Median outcome</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{fmt(estimate.median)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-gray-400 mb-1">75th percentile</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{fmt(estimate.percentile_75)}</p>
                   </div>
                 </div>
-                <SettleQueryButton
-                  tenantId={tenantId}
-                  caseId={caseId || `leverage-${Date.now()}`}
-                  settleEnabled={settleEnabled}
-                  pricingLabel={pricingLabel()}
-                  queryState={queryState}
-                  setQueryState={setQueryState}
-                  quotePrice={quotePrice}
-                  setQuotePrice={setQuotePrice}
-                  reportData={reportData}
-                  setReportData={setReportData}
-                  toast={toast}
-                />
-              </>
+                <div className="flex justify-between text-xs text-gray-400 mt-3">
+                  <span>{estimate.n_cases} comparable settlement{estimate.n_cases === 1 ? '' : 's'}</span>
+                  <span>
+                    {estimate.aggregation_level === 'county'
+                      ? `${estimate.n_county} county-level`
+                      : estimate.aggregation_level === 'state'
+                      ? `${estimate.n_state} statewide`
+                      : 'N/A'}
+                  </span>
+                </div>
+              </div>
             )}
-          </div>
-        ) : intel && intel.insufficient_data ? (
-          <div className="px-5 py-6 flex gap-3">
-            <AlertCircle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Data insufficient</p>
-              <p className="text-sm text-gray-500 mt-0.5">Expanding analysis to state level {(caseData && caseData.county.split(',')[1]?.trim()) || 'FL'}. Results will be available within 24 hours.</p>
-              <p className="text-xs text-gray-400 mt-2">Sample size: {intel.sample_size} comparable cases (minimum 20 required for county-level analysis)</p>
-            </div>
-          </div>
-        ) : intel ? (
-          <div className="px-5 py-5 space-y-5">
-            {/* Range */}
-            <div>
-              <p className="text-xs text-gray-400 uppercase tracking-widest mb-3">Estimated settlement distribution</p>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <p className="text-xs text-gray-400 mb-1">25th percentile</p>
-                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{fmt(intel.percentile_25)}</p>
-                </div>
-                <div className="text-center bg-gray-50 dark:bg-gray-700 rounded-lg py-2">
-                  <p className="text-xs text-gray-400 mb-1">Median outcome</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{fmt(intel.median)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-gray-400 mb-1">75th percentile</p>
-                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{fmt(intel.percentile_75)}</p>
-                </div>
-              </div>
-              <div className="flex justify-between text-xs text-gray-400 mt-3">
-                <span>Sample size: {intel.sample_size} comparable settlements</span>
-                <span>Jurisdiction weight: {intel.jurisdiction_weight}%</span>
-              </div>
-            </div>
 
             {/* Confidence */}
             <div className="flex items-start gap-3 bg-gray-50 dark:bg-gray-700 rounded-lg px-4 py-3">
               <Info size={15} className="text-gray-400 mt-0.5 flex-shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Confidence level: {intel.confidence_score}/10 — {intel.confidence_label}
+                  Confidence: {estimate.confidence}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">{intel.confidence_reason}</p>
+                {estimate.range_justification && (
+                  <p className="text-xs text-gray-400 mt-0.5">{estimate.range_justification}</p>
+                )}
               </div>
             </div>
 
-            {/* Factors */}
-            {intel.factors.length > 0 && (
+            {/* Comparable cases summary */}
+            {estimate.comparable_cases.length > 0 && (
               <div>
-                <p className="text-xs text-gray-400 uppercase tracking-widest mb-2">Key factors affecting outcome</p>
-                <div className="space-y-1.5">
-                  {intel.factors.map((f, i) => (
-                    <div key={i} className="flex items-start gap-2 text-sm">
-                      <span className={f.positive ? 'text-green-500' : 'text-gray-400'}>
-                        {f.positive ? '+' : ''}
-                      </span>
-                      <span className="text-gray-700 dark:text-gray-300">{f.text}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Risk adjustments */}
-            {intel.risk_adjustments.length > 0 && (
-              <div>
-                <p className="text-xs text-gray-400 uppercase tracking-widest mb-2">Risk adjustments</p>
+                <p className="text-xs text-gray-400 uppercase tracking-widest mb-2">Comparable cases</p>
                 <div className="space-y-2">
-                  {intel.risk_adjustments.map((r, i) => (
-                    <div key={i} className="grid grid-cols-2 gap-2 text-xs">
-                      <span className="text-gray-500">{r.condition}</span>
-                      <span className="text-gray-700 dark:text-gray-300 font-medium">{r.impact}</span>
+                  {estimate.comparable_cases.slice(0, 5).map((c, i) => (
+                    <div key={i} className="grid grid-cols-3 gap-2 text-xs border-b border-gray-100 dark:border-gray-700 pb-2">
+                      <span className="text-gray-500">{c.jurisdiction}</span>
+                      <span className="text-gray-700 dark:text-gray-300">{c.case_type}</span>
+                      <span className="text-gray-700 dark:text-gray-300 font-medium">{c.outcome_range}</span>
                     </div>
                   ))}
+                  {estimate.comparable_cases.length > 5 && (
+                    <p className="text-xs text-gray-400">
+                      +{estimate.comparable_cases.length - 5} more comparable cases in full report
+                    </p>
+                  )}
                 </div>
-              </div>
-            )}
-
-            {/* Insurer behavior */}
-            {intel.insurer_behavior && (
-              <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
-                <p className="text-xs text-gray-400 uppercase tracking-widest mb-2">Insurer negotiation pattern — {intel.insurer_behavior.label}</p>
-                <p className="text-sm text-gray-700 dark:text-gray-300">{intel.insurer_behavior.value}</p>
               </div>
             )}
           </div>
-        ) : null}
+
+        ) : estimateLoading ? (
+          /* ─── Fetching estimate after billing ────────────────────── */
+          <div className="px-5 py-8 flex flex-col items-center gap-2">
+            <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+            <p className="text-sm text-gray-500">Analyzing comparable settlements...</p>
+          </div>
+
+        ) : estimateError ? (
+          /* ─── Estimate fetch error ───────────────────────────────── */
+          <div className="px-5 py-6 flex gap-3">
+            <AlertCircle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-red-700 dark:text-red-400">Analysis failed</p>
+              <p className="text-xs text-gray-500 mt-0.5">{estimateError}</p>
+              <button
+                onClick={() => { setEstimate(null); setQueryState('idle'); }}
+                className="mt-2 text-xs font-medium text-gray-700 dark:text-gray-300 underline"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+
+        ) : (
+          /* ─── Billing flow (idle → loading → payment_required → ready) ─ */
+          <div className="px-5 py-6 space-y-4">
+            {queryState === 'idle' && (
+              <div className="flex items-start gap-3">
+                <Info size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">SETTLE analysis ready</p>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    {isLeverageImport
+                      ? 'Your damages data has been pre-populated. Run the analysis to see comparable settlement ranges from the SETTLE database.'
+                      : 'Run the analysis to see comparable settlement ranges based on this case.'}
+                  </p>
+                </div>
+              </div>
+            )}
+            <SettleQueryButton
+              tenantId={tenantId}
+              caseId={caseId || `leverage-${Date.now()}`}
+              settleEnabled={settleEnabled}
+              pricingLabel={pricingLabel()}
+              queryState={queryState}
+              setQueryState={setQueryState}
+              quotePrice={quotePrice}
+              setQuotePrice={setQuotePrice}
+              reportData={reportData}
+              setReportData={setReportData}
+              toast={toast}
+            />
+          </div>
+        )}
       </div>
 
       {/*  Section 3: Negotiation Timeline  */}
