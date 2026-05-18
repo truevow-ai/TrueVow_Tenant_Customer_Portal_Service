@@ -20,7 +20,7 @@ import {
 // TYPES
 // =============================================================================
 
-export type Service = 'intake' | 'settle' | 'draft';
+export type Service = 'intake' | 'settle' | 'leverage' | 'draft';
 
 export interface ServiceAccess {
   enabled: boolean;
@@ -122,10 +122,17 @@ function resolveServiceAccess(
     settle_status
   );
 
+  // LEVERAGE
+  const leverageAccess: ServiceAccess = resolveFeatureAccess(
+    features.leverage,
+    founding_intelligence
+  );
+
   return {
     intake: intakeAccess,
     draft: draftAccess,
     settle: settleAccess,
+    leverage: leverageAccess,
   };
 }
 

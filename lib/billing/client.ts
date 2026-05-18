@@ -63,6 +63,7 @@ export interface FeatureAccessResponse {
     intake: FeatureAccess;
     settle: FeatureAccess;
     leverage: FeatureAccess;
+    draft: FeatureAccess;
   };
   
   addons: AddOnInfo[];

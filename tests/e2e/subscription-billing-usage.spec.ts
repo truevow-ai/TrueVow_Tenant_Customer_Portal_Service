@@ -317,10 +317,12 @@ test.describe('Billing Page — Subscription Management', () => {
   test('Billing page loads with subscription card and manage section', async ({ page }) => {
     await mockFeatureAccess(page);
     await mockUsageData(page);
-    await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
+    await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`, { waitUntil: 'domcontentloaded' });
+    // Wait for page to render (API calls may still be in flight)
+    await page.waitForTimeout(2000);
 
-    await expect(page.locator('text=Billing & Usage')).toBeVisible();
-    await expect(page.locator('text=Manage Subscription')).toBeVisible();
+    await expect(page.getByText('Billing & Usage').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Manage Subscription').first()).toBeVisible({ timeout: 10000 });
   });
 
   test('Tier comparison row shows all 3 tiers', async ({ page }) => {
@@ -328,9 +330,9 @@ test.describe('Billing Page — Subscription Management', () => {
     await mockUsageData(page);
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Foundation')).toBeVisible();
-    await expect(page.locator('text=Solo')).toBeVisible();
-    await expect(page.locator('text=Growth')).toBeVisible();
+    await expect(page.getByText('Foundation')).toBeVisible();
+    await expect(page.getByText('Solo')).toBeVisible();
+    await expect(page.getByText('Growth')).toBeVisible();
   });
 
   test('Current tier is highlighted in comparison row', async ({ page }) => {
@@ -338,8 +340,7 @@ test.describe('Billing Page — Subscription Management', () => {
     await mockUsageData(page);
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
 
-    // Solo tier should be highlighted (border-primary)
-    const soloCard = page.locator('text=Solo').locator('..').locator('..');
+    const soloCard = page.getByText('Solo').first();
     await expect(soloCard).toBeVisible();
   });
 
@@ -348,7 +349,7 @@ test.describe('Billing Page — Subscription Management', () => {
     await mockUsageData(page);
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Upgrade to Growth')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Upgrade to Growth/ })).toBeVisible();
   });
 
   test('Downgrade button is visible for Solo tier', async ({ page }) => {
@@ -356,7 +357,7 @@ test.describe('Billing Page — Subscription Management', () => {
     await mockUsageData(page);
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Downgrade to Foundation')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Downgrade to Foundation/ })).toBeVisible();
   });
 
   test('Upgrade button is hidden for Growth tier', async ({ page }) => {
@@ -364,7 +365,7 @@ test.describe('Billing Page — Subscription Management', () => {
     await mockUsageData(page);
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Upgrade to')).not.toBeVisible();
+    await expect(page.getByRole('button', { name: /Upgrade to/ })).not.toBeVisible();
   });
 
   test('Downgrade button is hidden for Foundation tier', async ({ page }) => {
@@ -372,7 +373,7 @@ test.describe('Billing Page — Subscription Management', () => {
     await mockUsageData(page);
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Downgrade to')).not.toBeVisible();
+    await expect(page.getByRole('button', { name: /Downgrade to/ })).not.toBeVisible();
   });
 
   test('Cancel subscription button is visible', async ({ page }) => {
@@ -380,7 +381,7 @@ test.describe('Billing Page — Subscription Management', () => {
     await mockUsageData(page);
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Cancel Subscription')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cancel Subscription' })).toBeVisible();
   });
 
   test('Upgrade flow: clicking upgrade calls API and shows success', async ({ page }) => {
@@ -389,13 +390,10 @@ test.describe('Billing Page — Subscription Management', () => {
     await mockSubscriptionChange(page, 'growth');
 
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
-    await page.click('text=Upgrade to Growth');
+    await page.getByRole('button', { name: /Upgrade to Growth/ }).click();
 
-    // Should show loading state
-    await expect(page.locator('text=Upgrading…')).toBeVisible();
-
-    // After reload, should show Growth tier
-    await expect(page.locator('text=Growth Plan')).toBeVisible();
+    await expect(page.getByText(/Upgrading/)).toBeVisible();
+    await expect(page.getByText('Growth Plan')).toBeVisible();
   });
 
   test('Upgrade flow: API failure shows error toast', async ({ page }) => {
@@ -404,10 +402,9 @@ test.describe('Billing Page — Subscription Management', () => {
     await mockSubscriptionChangeFails(page);
 
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
-    await page.click('text=Upgrade to Growth');
+    await page.getByRole('button', { name: /Upgrade to Growth/ }).click();
 
-    // Should show error (toast or message)
-    await expect(page.locator('text=Failed')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/Failed/)).toBeVisible({ timeout: 10000 });
   });
 
   test('Cancel flow: confirmation modal appears', async ({ page }) => {
@@ -416,13 +413,12 @@ test.describe('Billing Page — Subscription Management', () => {
     await mockSubscriptionChange(page, 'solo');
 
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
-    await page.click('text=Cancel Subscription');
+    await page.getByRole('button', { name: 'Cancel Subscription' }).click();
 
-    // Should show confirmation modal
-    await expect(page.locator('text=Cancel Subscription?')).toBeVisible();
-    await expect(page.locator('text=You will lose access to premium features')).toBeVisible();
-    await expect(page.locator('text=Yes, Cancel')).toBeVisible();
-    await expect(page.locator('text=Keep Subscription')).toBeVisible();
+    await expect(page.getByText('Cancel Subscription?')).toBeVisible();
+    await expect(page.getByText(/You will lose access to premium features/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Yes, Cancel' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Keep Subscription' })).toBeVisible();
   });
 
   test('Cancel flow: keeping subscription closes modal', async ({ page }) => {
@@ -430,11 +426,11 @@ test.describe('Billing Page — Subscription Management', () => {
     await mockUsageData(page);
 
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
-    await page.click('text=Cancel Subscription');
-    await expect(page.locator('text=Cancel Subscription?')).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel Subscription' }).click();
+    await expect(page.getByText('Cancel Subscription?')).toBeVisible();
 
-    await page.click('text=Keep Subscription');
-    await expect(page.locator('text=Cancel Subscription?')).not.toBeVisible();
+    await page.getByRole('button', { name: 'Keep Subscription' }).click();
+    await expect(page.getByText('Cancel Subscription?')).not.toBeVisible();
   });
 
   test('Cancel flow: confirming cancel calls API', async ({ page }) => {
@@ -443,11 +439,10 @@ test.describe('Billing Page — Subscription Management', () => {
     await mockSubscriptionChange(page, 'solo');
 
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
-    await page.click('text=Cancel Subscription');
-    await page.click('text=Yes, Cancel');
+    await page.getByRole('button', { name: 'Cancel Subscription' }).click();
+    await page.getByRole('button', { name: 'Yes, Cancel' }).click();
 
-    // Should show loading then success
-    await expect(page.locator('text=Cancelling…')).toBeVisible();
+    await expect(page.getByText(/Cancelling/)).toBeVisible();
   });
 });
 
@@ -461,8 +456,8 @@ test.describe('Billing Page — Usage Tracking', () => {
     await mockUsageData(page, { settle_reports_used: 5, settle_reports_remaining: 28 });
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=SETTLE Reports Used')).toBeVisible();
-    await expect(page.locator('text=SETTLE Reports Remaining')).toBeVisible();
+    await expect(page.getByText('SETTLE Reports Used')).toBeVisible();
+    await expect(page.getByText('SETTLE Reports Remaining')).toBeVisible();
   });
 
   test('INTAKE unlock metrics are displayed', async ({ page }) => {
@@ -470,8 +465,8 @@ test.describe('Billing Page — Usage Tracking', () => {
     await mockUsageData(page, { unlocks_used: 3, unlocks_remaining: 8 });
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Unlocked This Period')).toBeVisible();
-    await expect(page.locator('text=Free Prospects')).toBeVisible();
+    await expect(page.getByText('Unlocked This Period')).toBeVisible();
+    await expect(page.getByText('Free Prospects')).toBeVisible();
   });
 
   test('Usage shows correct values from API', async ({ page }) => {
@@ -479,9 +474,8 @@ test.describe('Billing Page — Usage Tracking', () => {
     await mockUsageData(page, { settle_reports_used: 12, settle_reports_remaining: 21 });
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
 
-    // The values should be visible somewhere on the page
-    await expect(page.locator('text=12')).toBeVisible();
-    await expect(page.locator('text=21')).toBeVisible();
+    await expect(page.getByText('12')).toBeVisible();
+    await expect(page.getByText('21')).toBeVisible();
   });
 });
 
@@ -493,31 +487,31 @@ test.describe('Subscribe Page', () => {
   test('Growth tier subscribe page loads with details', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard/billing/subscribe/growth${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Growth Tier')).toBeVisible();
-    await expect(page.locator('text=Included Features')).toBeVisible();
-    await expect(page.locator('text=Subscribe to Growth Tier')).toBeVisible();
+    await expect(page.getByText('Growth Tier')).toBeVisible();
+    await expect(page.getByText('Included Features')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Subscribe to Growth Tier/ })).toBeVisible();
   });
 
   test('SETTLE subscribe page loads with pricing tiers', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard/billing/subscribe/settle${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=SETTLE Intelligence')).toBeVisible();
-    await expect(page.locator('text=Pricing Tiers')).toBeVisible();
-    await expect(page.locator('text=Subscribe to SETTLE Intelligence')).toBeVisible();
+    await expect(page.getByText('SETTLE Intelligence')).toBeVisible();
+    await expect(page.getByText('Pricing Tiers')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Subscribe to SETTLE Intelligence/ })).toBeVisible();
   });
 
   test('LEVERAGE subscribe page loads with pricing tiers', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard/billing/subscribe/leverage${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=LEVERAGE Case Economics')).toBeVisible();
-    await expect(page.locator('text=Pricing Tiers')).toBeVisible();
-    await expect(page.locator('text=Subscribe to LEVERAGE Case Economics')).toBeVisible();
+    await expect(page.getByText('LEVERAGE Case Economics')).toBeVisible();
+    await expect(page.getByText('Pricing Tiers')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Subscribe to LEVERAGE Case Economics/ })).toBeVisible();
   });
 
   test('Subscribe button is disabled without consent', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard/billing/subscribe/settle${AUTH_BYPASS}`);
 
-    const subscribeButton = page.locator('text=Subscribe to SETTLE Intelligence');
+    const subscribeButton = page.getByRole('button', { name: /Subscribe to SETTLE Intelligence/ });
     await expect(subscribeButton).toBeDisabled();
   });
 
@@ -525,14 +519,14 @@ test.describe('Subscribe Page', () => {
     await page.goto(`${BASE_URL}/dashboard/billing/subscribe/settle${AUTH_BYPASS}`);
 
     await page.check('input[type="checkbox"]');
-    const subscribeButton = page.locator('text=Subscribe to SETTLE Intelligence');
+    const subscribeButton = page.getByRole('button', { name: /Subscribe to SETTLE Intelligence/ });
     await expect(subscribeButton).toBeEnabled();
   });
 
   test('Invalid service shows 404-like page', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard/billing/subscribe/nonexistent${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Service Not Found')).toBeVisible();
+    await expect(page.getByText('Service Not Found')).toBeVisible();
   });
 });
 
@@ -545,43 +539,40 @@ test.describe('SETTLE Reports Page', () => {
     await mockSettleReportsEmpty(page);
     await page.goto(`${BASE_URL}/dashboard/settle/reports${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=No reports yet')).toBeVisible();
-    await expect(page.locator('text=Select a case')).toBeVisible();
+    await expect(page.getByText('No reports yet')).toBeVisible();
+    await expect(page.getByText('Select a case')).toBeVisible();
   });
 
   test('Reports page displays reports from API', async ({ page }) => {
     await mockSettleReportsWithData(page);
     await page.goto(`${BASE_URL}/dashboard/settle/reports${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Settlement Analysis - Zoey Baker')).toBeVisible();
-    await expect(page.locator('text=Settlement Analysis - Marcus Webb')).toBeVisible();
+    await expect(page.getByText('Settlement Analysis - Zoey Baker')).toBeVisible();
+    await expect(page.getByText('Settlement Analysis - Marcus Webb')).toBeVisible();
   });
 
   test('Report card shows PDF download link when file_url exists', async ({ page }) => {
     await mockSettleReportsWithData(page);
     await page.goto(`${BASE_URL}/dashboard/settle/reports${AUTH_BYPASS}`);
 
-    // First report has file_url
-    await expect(page.locator('text=PDF').first()).toBeVisible();
+    await expect(page.getByText('PDF').first()).toBeVisible();
   });
 
   test('Report card shows "PDF pending" when no file_url', async ({ page }) => {
     await mockSettleReportsWithData(page);
     await page.goto(`${BASE_URL}/dashboard/settle/reports${AUTH_BYPASS}`);
 
-    // Second report has null file_url
-    await expect(page.locator('text=PDF pending')).toBeVisible();
+    await expect(page.getByText('PDF pending')).toBeVisible();
   });
 
   test('Expanding a report shows details', async ({ page }) => {
     await mockSettleReportsWithData(page);
     await page.goto(`${BASE_URL}/dashboard/settle/reports${AUTH_BYPASS}`);
 
-    // Click to expand first report
-    await page.locator('text=Settlement Analysis - Zoey Baker').click();
+    await page.getByText('Settlement Analysis - Zoey Baker').click();
 
-    await expect(page.locator('text=Report ID:')).toBeVisible();
-    await expect(page.locator('text=Confidence:')).toBeVisible();
+    await expect(page.getByText('Report ID:')).toBeVisible();
+    await expect(page.getByText('Confidence:')).toBeVisible();
   });
 });
 
@@ -594,19 +585,18 @@ test.describe('SETTLE Landing Page — Reports Tab', () => {
     await mockSettleReportsEmpty(page);
     await page.goto(`${BASE_URL}/dashboard/settle${AUTH_BYPASS}`);
 
-    // Click Reports tab
-    await page.click('text=Settlement Reports');
+    await page.getByRole('button', { name: 'Settlement Reports' }).click();
 
-    await expect(page.locator('text=No reports yet')).toBeVisible();
+    await expect(page.getByText('No reports yet')).toBeVisible();
   });
 
   test('Reports tab shows real reports when available', async ({ page }) => {
     await mockSettleReportsWithData(page);
     await page.goto(`${BASE_URL}/dashboard/settle${AUTH_BYPASS}`);
 
-    await page.click('text=Settlement Reports');
+    await page.getByRole('button', { name: 'Settlement Reports' }).click();
 
-    await expect(page.locator('text=Settlement Analysis - Zoey Baker')).toBeVisible();
+    await expect(page.getByText('Settlement Analysis - Zoey Baker')).toBeVisible();
   });
 });
 
@@ -619,10 +609,7 @@ test.describe('SETTLE Landing Page — Council Tab', () => {
     await mockSettleContribute(page, true);
     await page.goto(`${BASE_URL}/dashboard/settle${AUTH_BYPASS}`);
 
-    // Council tab is only visible for council members (isCouncilMember = false by default)
-    // The tab is conditionally rendered, so we verify the form exists in the code
-    // by checking if the page loads without errors
-    await expect(page.locator('text=Case Analysis')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Case Analysis' })).toBeVisible();
   });
 });
 
@@ -635,30 +622,27 @@ test.describe('LEVERAGE → SETTLE Integration', () => {
     await mockLeverageCasesWithData(page);
     await page.goto(`${BASE_URL}/dashboard/settle${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Select a case')).toBeVisible();
-    await expect(page.locator('text=Your LEVERAGE cases')).toBeVisible();
+    await expect(page.getByText('Select a case')).toBeVisible();
+    await expect(page.getByText('Your LEVERAGE cases')).toBeVisible();
   });
 
   test('SETTLE case picker shows LEVERAGE case IDs', async ({ page }) => {
     await mockLeverageCasesWithData(page);
     await page.goto(`${BASE_URL}/dashboard/settle${AUTH_BYPASS}`);
 
-    // Open the select dropdown
     await page.locator('select').click();
 
-    // Should see case IDs
-    await expect(page.locator('text=lev-001-')).toBeVisible();
-    await expect(page.locator('text=Motor Vehicle Accident')).toBeVisible();
+    await expect(page.getByText(/lev-001-/)).toBeVisible();
+    await expect(page.getByText('Motor Vehicle Accident')).toBeVisible();
   });
 
   test('Clicking a case shows Run SETTLE button', async ({ page }) => {
     await mockLeverageCasesWithData(page);
     await page.goto(`${BASE_URL}/dashboard/settle${AUTH_BYPASS}`);
 
-    // Select a case
     await page.locator('select').selectOption({ label: /lev-001-/ });
 
-    await expect(page.locator('text=Run Settlement Intelligence')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Run Settlement Intelligence' })).toBeVisible();
   });
 
   test('Run SETTLE navigates to analysis with leverage_case source', async ({ page }) => {
@@ -666,9 +650,8 @@ test.describe('LEVERAGE → SETTLE Integration', () => {
     await page.goto(`${BASE_URL}/dashboard/settle${AUTH_BYPASS}`);
 
     await page.locator('select').selectOption({ label: /lev-001-/ });
-    await page.click('text=Run Settlement Intelligence');
+    await page.getByRole('button', { name: 'Run Settlement Intelligence' }).click();
 
-    // Should navigate to analysis page with correct params
     await expect(page).toHaveURL(/source=leverage_case/);
     await expect(page).toHaveURL(/case_id=lev-001/);
   });
@@ -679,10 +662,9 @@ test.describe('LEVERAGE → SETTLE Integration', () => {
 
     await page.goto(`${BASE_URL}/dashboard/settle/analysis?source=leverage_case&case_id=lev-001-abc${AUTH_BYPASS_APPEND}`);
 
-    // Should show case details from LEVERAGE
-    await expect(page.locator('text=Motor Vehicle Accident')).toBeVisible();
-    await expect(page.locator('text=Florida')).toBeVisible();
-    await expect(page.locator('text=Case Inputs')).toBeVisible();
+    await expect(page.getByText('Motor Vehicle Accident')).toBeVisible();
+    await expect(page.getByText('Florida')).toBeVisible();
+    await expect(page.getByText('Case Inputs')).toBeVisible();
   });
 
   test('Analysis page shows saved damages when available', async ({ page }) => {
@@ -691,8 +673,8 @@ test.describe('LEVERAGE → SETTLE Integration', () => {
 
     await page.goto(`${BASE_URL}/dashboard/settle/analysis?source=leverage_case&case_id=lev-001-abc${AUTH_BYPASS_APPEND}`);
 
-    await expect(page.locator('text=Saved Damages Worksheet')).toBeVisible();
-    await expect(page.locator('text=Gross Damages')).toBeVisible();
+    await expect(page.getByText('Saved Damages Worksheet')).toBeVisible();
+    await expect(page.getByText('Gross Damages')).toBeVisible();
   });
 });
 
@@ -705,14 +687,14 @@ test.describe('LEVERAGE Cases — SETTLE Button', () => {
     await mockLeverageCasesWithData(page);
     await page.goto(`${BASE_URL}/dashboard/leverage/cases${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=SETTLE').first()).toBeVisible();
+    await expect(page.getByText('SETTLE').first()).toBeVisible();
   });
 
   test('Clicking SETTLE navigates to analysis page', async ({ page }) => {
     await mockLeverageCasesWithData(page);
     await page.goto(`${BASE_URL}/dashboard/leverage/cases${AUTH_BYPASS}`);
 
-    await page.locator('text=SETTLE').first().click();
+    await page.getByText('SETTLE').first().click();
 
     await expect(page).toHaveURL(/source=leverage_case/);
   });
@@ -721,14 +703,14 @@ test.describe('LEVERAGE Cases — SETTLE Button', () => {
     await mockLeverageCaseDetail(page);
     await page.goto(`${BASE_URL}/dashboard/leverage/cases/lev-001-abc${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Run SETTLE')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Run SETTLE' })).toBeVisible();
   });
 
   test('Run SETTLE from case detail navigates correctly', async ({ page }) => {
     await mockLeverageCaseDetail(page);
     await page.goto(`${BASE_URL}/dashboard/leverage/cases/lev-001-abc${AUTH_BYPASS}`);
 
-    await page.click('text=Run SETTLE');
+    await page.getByRole('button', { name: 'Run SETTLE' }).click();
 
     await expect(page).toHaveURL(/source=leverage_case/);
     await expect(page).toHaveURL(/case_id=lev-001-abc/);
@@ -743,14 +725,14 @@ test.describe('SETTLE Contribute Page', () => {
   test('Contribute page loads with form', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard/settle/contribute${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Contribute Settlement Data')).toBeVisible();
-    await expect(page.locator('text=No PHI / No PII Policy')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Contribute Settlement Data' })).toBeVisible();
+    await expect(page.getByText('No PHI / No PII Policy')).toBeVisible();
   });
 
   test('Submit button is disabled without required fields', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard/settle/contribute${AUTH_BYPASS}`);
 
-    const submitButton = page.locator('text=Submit to SETTLE Database');
+    const submitButton = page.getByRole('button', { name: 'Submit to SETTLE Database' });
     await expect(submitButton).toBeDisabled();
   });
 
@@ -758,16 +740,14 @@ test.describe('SETTLE Contribute Page', () => {
     await mockSettleContribute(page);
     await page.goto(`${BASE_URL}/dashboard/settle/contribute${AUTH_BYPASS}`);
 
-    // Fill required fields
     await page.locator('select').nth(0).selectOption('Duval County, FL');
     await page.locator('select').nth(1).selectOption('Motor Vehicle Accident');
     await page.locator('select').nth(2).selectOption('Fracture');
     await page.locator('select').nth(3).selectOption('$50k–$100k');
 
-    // Check consent
     await page.check('input[type="checkbox"]');
 
-    const submitButton = page.locator('text=Submit to SETTLE Database');
+    const submitButton = page.getByRole('button', { name: 'Submit to SETTLE Database' });
     await expect(submitButton).toBeEnabled();
   });
 
@@ -781,9 +761,9 @@ test.describe('SETTLE Contribute Page', () => {
     await page.locator('select').nth(3).selectOption('$50k–$100k');
     await page.check('input[type="checkbox"]');
 
-    await page.click('text=Submit to SETTLE Database');
+    await page.getByRole('button', { name: 'Submit to SETTLE Database' }).click();
 
-    await expect(page.locator('text=Settlement Data Submitted')).toBeVisible();
+    await expect(page.getByText('Settlement Data Submitted')).toBeVisible();
   });
 });
 
@@ -795,38 +775,38 @@ test.describe('SETTLE Query Page — Advanced Filters', () => {
   test('Query page loads with all filter fields', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard/settle/query${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Query Settlement Range')).toBeVisible();
-    await expect(page.locator('text=Advanced Filters')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Query Settlement Range' })).toBeVisible();
+    await expect(page.getByText('Advanced Filters')).toBeVisible();
   });
 
   test('Medical Bills field is present', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard/settle/query${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Medical Bills ($)')).toBeVisible();
+    await expect(page.getByText('Medical Bills ($)')).toBeVisible();
   });
 
   test('Insurance Carrier filter is present', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard/settle/query${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Insurance Carrier')).toBeVisible();
+    await expect(page.getByText('Insurance Carrier')).toBeVisible();
   });
 
   test('Injury Severity filter is present', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard/settle/query${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Injury Severity')).toBeVisible();
+    await expect(page.getByText('Injury Severity')).toBeVisible();
   });
 
   test('Court Level filter is present', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard/settle/query${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Court Level')).toBeVisible();
+    await expect(page.getByText('Court Level')).toBeVisible();
   });
 
   test('Outcome Type filter is present', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard/settle/query${AUTH_BYPASS}`);
 
-    await expect(page.locator('text=Outcome Type')).toBeVisible();
+    await expect(page.getByText('Outcome Type')).toBeVisible();
   });
 });
 
@@ -841,8 +821,7 @@ test.describe('SETTLE Analysis — Comparable Cases Display', () => {
 
     await page.goto(`${BASE_URL}/dashboard/settle/analysis?source=leverage_case&case_id=lev-001-abc${AUTH_BYPASS_APPEND}`);
 
-    // Wait for analysis to load
-    await expect(page.locator('text=Comparable cases')).toBeVisible();
+    await expect(page.getByText('Comparable cases')).toBeVisible();
   });
 
   test('Verdict disclosure banner shows when verdict data present', async ({ page }) => {
@@ -851,7 +830,7 @@ test.describe('SETTLE Analysis — Comparable Cases Display', () => {
 
     await page.goto(`${BASE_URL}/dashboard/settle/analysis?source=leverage_case&case_id=lev-001-abc${AUTH_BYPASS_APPEND}`);
 
-    await expect(page.locator('text=Estimate includes verdict-derived data')).toBeVisible();
+    await expect(page.getByText('Estimate includes verdict-derived data')).toBeVisible();
   });
 
   test('Carrier count is displayed', async ({ page }) => {
@@ -860,7 +839,7 @@ test.describe('SETTLE Analysis — Comparable Cases Display', () => {
 
     await page.goto(`${BASE_URL}/dashboard/settle/analysis?source=leverage_case&case_id=lev-001-abc${AUTH_BYPASS_APPEND}`);
 
-    await expect(page.locator('text=comparable cases')).toBeVisible();
-    await expect(page.locator('text=carriers represented')).toBeVisible();
+    await expect(page.getByText('comparable cases')).toBeVisible();
+    await expect(page.getByText('carriers represented')).toBeVisible();
   });
 });
