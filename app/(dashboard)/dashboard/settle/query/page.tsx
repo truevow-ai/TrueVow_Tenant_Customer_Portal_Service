@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ChevronDown, ChevronUp, BarChart3, AlertTriangle } from 'lucide-react';
 import { settleClient, type EstimateRequest, type EstimateResponse } from '@/lib/api/settle-client';
 
 const JURISDICTIONS = [
@@ -36,6 +37,8 @@ const INJURY_CATEGORIES = [
 const SEVERITY_LEVELS = ['Mild', 'Moderate', 'Severe', 'Catastrophic'];
 const LIABILITY_LEVELS = ['Weak', 'Moderate', 'Strong', 'Clear'];
 const DEFENDANT_TYPES = ['Individual', 'Small Business', 'Corporation', 'Government', 'Insurance Company'];
+const OUTCOME_TYPES = ['Settlement', 'Jury Verdict', 'Arbitration Award', 'Mediation', "Judge's Decision"];
+const COURT_LEVELS = ['circuit', 'federal_district', 'municipal', 'appellate', 'supreme'];
 
 export default function SettleQueryPage() {
   const router = useRouter();
@@ -55,6 +58,17 @@ export default function SettleQueryPage() {
   const [injurySeverity, setInjurySeverity] = useState('');
   const [courtLevel, setCourtLevel] = useState('');
   const [isVerdict, setIsVerdict] = useState<boolean | undefined>(undefined);
+  // Phase 2.2 — advanced filters
+  const [advancedExpanded, setAdvancedExpanded] = useState(false);
+  const [outcomeType, setOutcomeType] = useState('');
+  const [dateRangeFrom, setDateRangeFrom] = useState('');
+  const [dateRangeTo, setDateRangeTo] = useState('');
+  const [medicalBillsMin, setMedicalBillsMin] = useState('');
+  const [medicalBillsMax, setMedicalBillsMax] = useState('');
+  const [excludeOutliers, setExcludeOutliers] = useState(true);
+  const [minReputationScore, setMinReputationScore] = useState(0);
+  const [comparativeNegligenceMin, setComparativeNegligenceMin] = useState('');
+  const [comparativeNegligenceMax, setComparativeNegligenceMax] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +96,16 @@ export default function SettleQueryPage() {
         ...(injurySeverity && { injury_severity: injurySeverity }),
         ...(courtLevel && { court_level: courtLevel }),
         ...(isVerdict !== undefined && { is_verdict: isVerdict }),
+        // Phase 2.2 advanced filters
+        ...(outcomeType && { outcome_type: outcomeType }),
+        ...(dateRangeFrom && { date_range_from: dateRangeFrom }),
+        ...(dateRangeTo && { date_range_to: dateRangeTo }),
+        ...(medicalBillsMin && { medical_bills_min: Number(medicalBillsMin) }),
+        ...(medicalBillsMax && { medical_bills_max: Number(medicalBillsMax) }),
+        ...(excludeOutliers !== undefined && { exclude_outliers: excludeOutliers }),
+        ...(minReputationScore > 0 && { min_reputation_score: minReputationScore }),
+        ...(comparativeNegligenceMin && { comparative_negligence_min: Number(comparativeNegligenceMin) }),
+        ...(comparativeNegligenceMax && { comparative_negligence_max: Number(comparativeNegligenceMax) }),
       };
 
       const result = await settleClient.getEstimate(request);
@@ -100,6 +124,18 @@ export default function SettleQueryPage() {
     } else {
       setSelectedInjuries([...selectedInjuries, injury]);
     }
+  };
+
+  const clearAdvancedFilters = () => {
+    setOutcomeType('');
+    setDateRangeFrom('');
+    setDateRangeTo('');
+    setMedicalBillsMin('');
+    setMedicalBillsMax('');
+    setExcludeOutliers(true);
+    setMinReputationScore(0);
+    setComparativeNegligenceMin('');
+    setComparativeNegligenceMax('');
   };
 
   const formatCurrency = (amount: number) => {
@@ -249,66 +285,150 @@ export default function SettleQueryPage() {
               />
             </div>
 
-            {/* Cohort W — rich filters */}
+            {/* Phase 2.2 — Advanced Filters (collapsible) */}
             <div className="pt-2 border-t border-gray-200">
-              <p className="text-xs font-medium text-gray-500 mb-3">Advanced Filters</p>
+              <button
+                type="button"
+                onClick={() => setAdvancedExpanded(!advancedExpanded)}
+                className="w-full flex items-center justify-between py-2 text-left"
+              >
+                <span className="text-xs font-medium text-gray-500">Advanced Filters</span>
+                {advancedExpanded ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+              </button>
 
-              <div className="space-y-4">
-                {/* Insurance Carrier filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Insurance Carrier (optional)</label>
-                  <input
-                    type="text"
-                    value={insuranceCarrier}
-                    onChange={(e) => setInsuranceCarrier(e.target.value)}
-                    placeholder="e.g., State Farm"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                  />
-                </div>
+              {advancedExpanded && (
+                <div className="space-y-4 pb-2">
+                  {/* Outcome Type */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Outcome Type</label>
+                    <select
+                      value={outcomeType}
+                      onChange={(e) => setOutcomeType(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                    >
+                      <option value="">Any</option>
+                      {OUTCOME_TYPES.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
 
-                {/* Injury Severity filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Injury Severity (optional)</label>
-                  <select
-                    value={injurySeverity}
-                    onChange={(e) => setInjurySeverity(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                  >
-                    <option value="">Any</option>
-                    <option value="soft_tissue">Soft Tissue</option>
-                    <option value="fracture">Fracture</option>
-                    <option value="surgical">Surgical</option>
-                    <option value="catastrophic">Catastrophic</option>
-                    <option value="fatal">Fatal</option>
-                  </select>
-                </div>
+                  {/* Date Range */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date From</label>
+                      <input
+                        type="date"
+                        value={dateRangeFrom}
+                        onChange={(e) => setDateRangeFrom(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date To</label>
+                      <input
+                        type="date"
+                        value={dateRangeTo}
+                        onChange={(e) => setDateRangeTo(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                  </div>
 
-                {/* Court Level filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Court Level (optional)</label>
-                  <input
-                    type="text"
-                    value={courtLevel}
-                    onChange={(e) => setCourtLevel(e.target.value)}
-                    placeholder="e.g., circuit, federal_district"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                  />
-                </div>
+                  {/* Medical Bills Range */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Medical Bills Min ($)</label>
+                      <input
+                        type="number"
+                        value={medicalBillsMin}
+                        onChange={(e) => setMedicalBillsMin(e.target.value)}
+                        placeholder="0"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Medical Bills Max ($)</label>
+                      <input
+                        type="number"
+                        value={medicalBillsMax}
+                        onChange={(e) => setMedicalBillsMax(e.target.value)}
+                        placeholder="100000"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                  </div>
 
-                {/* Verdict vs Settlement filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Outcome Type (optional)</label>
-                  <select
-                    value={isVerdict === undefined ? '' : isVerdict ? 'verdict' : 'settlement'}
-                    onChange={(e) => setIsVerdict(e.target.value === '' ? undefined : e.target.value === 'verdict')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                  >
-                    <option value="">Any</option>
-                    <option value="verdict">Verdict Only</option>
-                    <option value="settlement">Settlement Only</option>
-                  </select>
+                  {/* Comparative Negligence */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Comp. Negligence Min (%)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={comparativeNegligenceMin}
+                        onChange={(e) => setComparativeNegligenceMin(e.target.value)}
+                        placeholder="0"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Comp. Negligence Max (%)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={comparativeNegligenceMax}
+                        onChange={(e) => setComparativeNegligenceMax(e.target.value)}
+                        placeholder="100"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Min Reputation Score */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Min Reputation Score: {minReputationScore.toFixed(1)}
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      value={minReputationScore}
+                      onChange={(e) => setMinReputationScore(Number(e.target.value))}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-gray-400">
+                      <span>0.0</span>
+                      <span>1.0</span>
+                    </div>
+                  </div>
+
+                  {/* Exclude Outliers */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="excludeOutliers"
+                      checked={excludeOutliers}
+                      onChange={(e) => setExcludeOutliers(e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <label htmlFor="excludeOutliers" className="text-sm text-gray-700">Exclude Outliers</label>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={clearAdvancedFilters}
+                      className="flex-1 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Clear
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <button
@@ -385,6 +505,62 @@ export default function SettleQueryPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Phase 2.1: Confidence Score Display */}
+              {estimate.confidence_score && (
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-gray-400" />
+                      <span className="text-sm font-semibold text-gray-700">
+                        Data Confidence: {estimate.confidence_score.overall}/100
+                      </span>
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      estimate.confidence_score.overall >= 70
+                        ? 'bg-green-100 text-green-800'
+                        : estimate.confidence_score.overall >= 40
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {estimate.confidence_score.label}
+                    </span>
+                  </div>
+                  <div className="px-4 py-3 space-y-2">
+                    {Object.entries(estimate.confidence_score.factors).map(([key, factor]) => {
+                      const pct = (factor.score / factor.max) * 100;
+                      const barColor = factor.score >= 7 ? 'bg-green-500' : factor.score >= 4 ? 'bg-amber-500' : 'bg-red-500';
+                      const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                      return (
+                        <div key={key} className="flex items-center gap-2">
+                          <div className="w-32 flex-shrink-0">
+                            <p className="text-xs font-medium text-gray-700">{label}</p>
+                            <p className="text-xs text-gray-400">{factor.score}/{factor.max}</p>
+                          </div>
+                          <div className="flex-1">
+                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className={`h-full ${barColor} rounded-full`} style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                          <div className="w-36 flex-shrink-0">
+                            <p className="text-xs text-gray-500 truncate">{factor.detail}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {estimate.confidence_score.warnings.length > 0 && (
+                    <div className="px-4 py-2 bg-amber-50 border-t border-amber-200">
+                      {estimate.confidence_score.warnings.map((w, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-xs text-amber-700">
+                          <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                          <span>{w}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Verdict-derived data disclosure */}
               {estimate.comparable_cases.some(c => c.is_verdict === true) && (

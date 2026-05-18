@@ -1,0 +1,49 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "architect",
+  "agent": {
+    "architect": {
+      "description": "Architect mode - plans features, validates against architecture, creates implementation specs",
+      "mode": "primary",
+      "model": "qwen/qwen3.6-plus",
+      "permission": {
+        "edit": "ask",
+        "bash": "ask"
+      }
+    },
+    "coder": {
+      "description": "Expert coding agent - implements planned tasks, writes production code, follows conventions",
+      "mode": "primary",
+      "model": "qwen/qwen3.6-plus",
+      "permission": {
+        "edit": "ask",
+        "bash": "ask"
+      }
+    },
+    "qa": {
+      "description": "Quality assurance agent - runs tests, validates builds, commits when all checks pass",
+      "mode": "primary",
+      "model": "qwen/qwen3.6-plus",
+      "permission": {
+        "edit": "ask",
+        "bash": "ask"
+      }
+    }
+  },
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+  "instructions": [
+    ".opencode/rules/agent-rules.md"
+  ],
+  "permission": {
+    "edit": "ask",
+    "bash": {
+      "npm run *": "allow",
+      "npx playwright *": "allow",
+      "npx tsc *": "allow",
+      "git *": "allow",
+      "*": "ask"
+    }
+  }
+}

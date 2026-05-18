@@ -21,6 +21,16 @@ export interface EstimateRequest {
   injury_severity?: string;
   court_level?: string;
   is_verdict?: boolean;
+  // Phase 2.2: Advanced search filters
+  outcome_type?: string;
+  date_range_from?: string;
+  date_range_to?: string;
+  medical_bills_min?: number;
+  medical_bills_max?: number;
+  exclude_outliers?: boolean;
+  min_reputation_score?: number;
+  comparative_negligence_min?: number;
+  comparative_negligence_max?: number;
 }
 
 /**
@@ -61,6 +71,9 @@ export interface EstimateResponse {
   query_id: string | null;
   queried_at: string;
   response_time_ms: number | null;
+
+  // Phase 2.1: Demand Confidence Score
+  confidence_score: ConfidenceScoreData | null;
 }
 
 export interface ComparableCase {
@@ -80,6 +93,44 @@ export interface ComparableCase {
   exact_outcome_amount?: number;
   comparative_negligence_pct?: number;
   date_of_verdict?: string;
+}
+
+// Phase 2.1: Confidence Score types
+export interface ConfidenceFactor {
+  score: number;
+  max: number;
+  weight: number;
+  detail: string;
+}
+
+export interface ConfidenceScoreData {
+  overall: number;
+  label: string;
+  factors: Record<string, ConfidenceFactor>;
+  warnings: string[];
+}
+
+// Phase 2.3: Carrier Patterns types
+export interface CarrierPattern {
+  defendant_category: string;
+  defendant_industry: string | null;
+  case_count: number;
+  avg_settlement_range: { low: number; median: number; high: number };
+  settlement_rate: number;
+  avg_time_to_resolution_days: number | null;
+  trial_rate: number;
+  lowball_indicator: number;
+  median_settlement: number | null;
+  p25_settlement: number | null;
+  p75_settlement: number | null;
+}
+
+export interface CarrierPatternsResponse {
+  patterns: CarrierPattern[];
+  total_cases: number;
+  jurisdiction: string | null;
+  case_type: string | null;
+  methodology: string;
 }
 
 export interface ContributionRequest {
@@ -151,6 +202,25 @@ class SettleClient {
 
   async generateReport(caseId: string, reportType: string): Promise<Report> {
     return this.post('/api/settle/reports', { case_id: caseId, report_type: reportType });
+  }
+
+  // Phase 2.3: Carrier Patterns analytics
+  async getCarrierPatterns(params?: {
+    jurisdiction?: string;
+    case_type?: string;
+    injury_category?: string[];
+    defendant_category?: string;
+    min_case_count?: number;
+  }): Promise<CarrierPatternsResponse> {
+    const query = new URLSearchParams();
+    if (params?.jurisdiction) query.set('jurisdiction', params.jurisdiction);
+    if (params?.case_type) query.set('case_type', params.case_type);
+    if (params?.injury_category) params.injury_category.forEach(i => query.append('injury_category', i));
+    if (params?.defendant_category) query.set('defendant_category', params.defendant_category);
+    if (params?.min_case_count) query.set('min_case_count', String(params.min_case_count));
+
+    const qs = query.toString();
+    return this.get(`/api/settle/carrier-patterns${qs ? `?${qs}` : ''}`);
   }
 }
 

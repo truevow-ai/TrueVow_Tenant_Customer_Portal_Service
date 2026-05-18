@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
-import { ChevronDown, ChevronUp, AlertCircle, Info, Plus, Lock, Loader2, CreditCard, CheckCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertCircle, Info, Plus, Lock, Loader2, CreditCard, CheckCircle, BarChart3, AlertTriangle } from 'lucide-react';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { useTenant } from '@/hooks/useTenant';
 import { useCompanyToast } from '@/hooks/useCompanyToast';
@@ -620,6 +620,77 @@ function CaseAnalysisInner() {
                 )}
               </div>
             </div>
+
+            {/* Phase 2.1: Confidence Score Display */}
+            {estimate.confidence_score && (
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-widest mb-3">Data Confidence Score</p>
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  {/* Overall score header */}
+                  <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <BarChart3 className="h-5 w-5 text-gray-400" />
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        Data Confidence Score: {estimate.confidence_score.overall}/100
+                      </span>
+                    </div>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      estimate.confidence_score.overall >= 70
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                        : estimate.confidence_score.overall >= 40
+                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300'
+                        : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
+                    }`}>
+                      {estimate.confidence_score.label}
+                    </span>
+                  </div>
+
+                  {/* Factor breakdown */}
+                  <div className="px-5 py-4 space-y-3">
+                    {Object.entries(estimate.confidence_score.factors).map(([key, factor]) => {
+                      const pct = (factor.score / factor.max) * 100;
+                      const barColor = factor.score >= 7
+                        ? 'bg-green-500'
+                        : factor.score >= 4
+                        ? 'bg-amber-500'
+                        : 'bg-red-500';
+                      const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                      return (
+                        <div key={key} className="flex items-start gap-3">
+                          <div className="w-44 flex-shrink-0">
+                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{label}</p>
+                            <p className="text-xs text-gray-400">{factor.score}/{factor.max}</p>
+                          </div>
+                          <div className="flex-1">
+                            <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full ${barColor} rounded-full transition-all`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                          <div className="w-48 flex-shrink-0">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{factor.detail}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Warnings */}
+                  {estimate.confidence_score.warnings.length > 0 && (
+                    <div className="px-5 py-3 bg-amber-50 dark:bg-amber-900/20 border-t border-amber-200 dark:border-amber-800">
+                      {estimate.confidence_score.warnings.map((warning, i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400">
+                          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                          <span>{warning}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Comparable cases summary */}
             {estimate.comparable_cases.length > 0 && (

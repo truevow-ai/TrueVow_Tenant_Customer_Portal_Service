@@ -13,6 +13,7 @@ import {
   CreditCard, 
   Settings,
   Scale,
+  BarChart3,
   Network,
   ShieldCheck,
   UserPlus,
@@ -120,6 +121,13 @@ function DashboardLayoutContent({
           {showSettle && (
             <NavLink href="/dashboard/settle" icon={<Scale size={20} />} collapsed={collapsed}>
               Settlement Intelligence
+            </NavLink>
+          )}
+          
+          {/* Carrier Patterns - Phase 2.3 */}
+          {showSettle && (
+            <NavLink href="/dashboard/settle/carrier-patterns" icon={<BarChart3 size={20} />} collapsed={collapsed}>
+              Carrier Patterns
             </NavLink>
           )}
           
