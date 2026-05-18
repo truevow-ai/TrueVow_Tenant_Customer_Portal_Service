@@ -8,7 +8,8 @@
 import { test, expect, Page } from '@playwright/test';
 
 // Test configuration
-const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3031';`nconst AUTH_BYPASS = '?preview=bypass';
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3031';
+const AUTH_BYPASS = '?preview=bypass';
 const TEST_TIMEOUT = 30000;
 
 // Mock subscription data

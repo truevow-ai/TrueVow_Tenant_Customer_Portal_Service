@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { useTenant } from './useTenant';
+import { useTenantDev } from './useTenant';
 import type { FeatureAccessResponse, Tier } from '@/lib/billing/client';
 
 // Fetch feature-access through the Next.js server-side proxy (avoids browser CORS)
@@ -44,7 +44,7 @@ const FeatureContext = createContext<FeatureContextValue | null>(null);
 // =============================================================================
 
 export function FeatureProvider({ children }: { children: ReactNode }) {
-  const { tenantId, isLoading: tenantLoading } = useTenant();
+  const { tenantId, isLoading: tenantLoading } = useTenantDev();
   const [features, setFeatures] = useState<FeatureAccessResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
