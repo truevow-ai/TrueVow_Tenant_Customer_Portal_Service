@@ -6,9 +6,11 @@ import { useUser } from '@clerk/nextjs';
 import {
   CreditCard, AlertCircle, Users, ShieldCheck, Building2, Activity,
   ArrowRight, TrendingUp, BarChart3, Star, Zap, DollarSign, Percent, Check,
+  ArrowUpRight, ArrowDownRight, XCircle, Loader2,
 } from 'lucide-react';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { useTenantDev } from '@/hooks/useTenant';
+import { useCompanyToast } from '@/hooks/useCompanyToast';
 import {
   formatCents,
   getDashboardAccessTierLabel,
@@ -373,8 +375,14 @@ export default function BillingPage() {
                   )}
                 </div>
               </div>
-            </div>
           </div>
+        </div>
+
+          {/* ── Manage Subscription ───────────────────────────────────────── */}
+          <ManageSubscriptionCard
+            currentTier={tier ?? null}
+            subscriptionStatus={subscriptionStatus}
+          />
 
           {/* ── Founding Intelligence Section ────────────────────────────── */}
           {foundingIntel?.is_member && (
@@ -626,7 +634,7 @@ export default function BillingPage() {
                   </Link>
                 </div>
 
-                {/* DRAFT upgrade card */}
+                {/* LEVERAGE upgrade card */}
                 <div className="bg-card border-2 border-border rounded-lg p-5 flex flex-col">
                   <div className="flex items-start gap-3 mb-3">
                     <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex-shrink-0">
@@ -634,18 +642,18 @@ export default function BillingPage() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-0.5">
-                        <h3 className="font-semibold text-card-foreground">DRAFT</h3>
+                        <h3 className="font-semibold text-card-foreground">LEVERAGE</h3>
                         <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
-                          Per Document
+                          Per Case
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        AI-assisted legal document drafting — engagement letters, demand letters, and more.
+                        Case economics engine — damages calculator, disbursement planner, compliance checks, and deadline tracking.
                       </p>
                     </div>
                   </div>
                   <ul className="space-y-1.5 text-sm text-muted-foreground mb-4 flex-1">
-                    {['Engagement letter generation from intake data', 'Demand letter drafting', 'Clause library & custom templates', 'One-click export to Word / PDF'].map(f => (
+                    {['Real-time damages calculation (medical, lost income, pain & suffering)', 'Disbursement planner with attorney fee breakdown', 'Automated compliance checks & deadline tracking', 'Integrated with SETTLE for comparable settlement data'].map(f => (
                       <li key={f} className="flex items-start gap-2">
                         <Check className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
                         {f}
@@ -653,10 +661,10 @@ export default function BillingPage() {
                     ))}
                   </ul>
                   <Link
-                    href="/dashboard/billing/subscribe/draft"
+                    href="/dashboard/billing/subscribe/leverage"
                     className="inline-flex items-center justify-center gap-2 w-full px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors mt-auto"
                   >
-                    Activate DRAFT — Pay Per Document
+                    Activate LEVERAGE — Pay Per Case
                     <ArrowRight size={15} />
                   </Link>
                 </div>
@@ -895,6 +903,205 @@ function FeatureCard({
             {actionLabel}
             <ArrowRight size={16} />
           </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Manage Subscription Card ────────────────────────────────────────────────
+
+const TIER_ORDER = ['foundation', 'solo', 'growth'] as const;
+type TierKey = typeof TIER_ORDER[number];
+
+const TIER_INFO: Record<string, { name: string; price: string; description: string }> = {
+  foundation: { name: 'Foundation', price: 'Free', description: 'Essential tools to get started' },
+  solo: { name: 'Solo', price: '$299/mo', description: 'Pay-per-use with premium service access' },
+  growth: { name: 'Growth', price: '$1,479/mo', description: 'Unlimited access + dedicated support' },
+};
+
+function ManageSubscriptionCard({
+  currentTier,
+  subscriptionStatus,
+}: {
+  currentTier: string | null;
+  subscriptionStatus: string;
+}) {
+  const { tenantId } = useTenantDev();
+  const toast = useCompanyToast();
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+
+  const currentTierKey = (currentTier?.toLowerCase() || 'foundation') as TierKey;
+  const currentIndex = TIER_ORDER.indexOf(currentTierKey);
+
+  const canUpgrade = currentIndex < TIER_ORDER.length - 1;
+  const canDowngrade = currentIndex > 0;
+
+  const nextTier = canUpgrade ? TIER_ORDER[currentIndex + 1] : null;
+  const prevTier = canDowngrade ? TIER_ORDER[currentIndex - 1] : null;
+
+  const handleTierChange = async (targetTier: TierKey) => {
+    if (!tenantId) {
+      toast.error('Error', 'Tenant not loaded');
+      return;
+    }
+    setActionLoading(targetTier);
+    try {
+      const res = await fetch('/api/billing/subscription', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, tier: targetTier }),
+      });
+      const data = await res.json();
+      if (res.ok || data._fallback) {
+        toast.success(
+          'Plan Updated',
+          `Your plan has been changed to ${TIER_INFO[targetTier].name}. Changes take effect immediately.`
+        );
+        // Reload to reflect new tier
+        window.location.reload();
+      } else {
+        toast.error('Failed', data.error || 'Unable to change plan. Please try again.');
+      }
+    } catch {
+      toast.error('Failed', 'Could not reach billing service. Please try again later.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!tenantId) {
+      toast.error('Error', 'Tenant not loaded');
+      return;
+    }
+    setActionLoading('cancel');
+    try {
+      const res = await fetch('/api/billing/subscription', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId }),
+      });
+      const data = await res.json();
+      if (res.ok || data._fallback) {
+        toast.success('Subscription Cancelled', 'Your subscription has been cancelled. Access continues until the end of your billing period.');
+        window.location.reload();
+      } else {
+        toast.error('Failed', data.error || 'Unable to cancel subscription.');
+      }
+    } catch {
+      toast.error('Failed', 'Could not reach billing service. Please try again later.');
+    } finally {
+      setActionLoading(null);
+      setShowCancelModal(false);
+    }
+  };
+
+  return (
+    <div className="mb-8 bg-card border border-border rounded-lg p-6">
+      <h2 className="text-lg font-semibold text-card-foreground mb-4 flex items-center gap-2">
+        <Activity className="h-5 w-5 text-primary" />
+        Manage Subscription
+      </h2>
+
+      {/* Tier comparison row */}
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        {TIER_ORDER.map((t, i) => {
+          const info = TIER_INFO[t];
+          const isCurrent = t === currentTierKey;
+          const isAvailable = i <= currentIndex + 1;
+          return (
+            <div
+              key={t}
+              className={`rounded-lg p-4 border-2 transition-all ${
+                isCurrent
+                  ? 'border-primary bg-primary/5'
+                  : i < currentIndex
+                  ? 'border-border bg-muted/30 opacity-60'
+                  : 'border-border'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                {isCurrent && <Check className="h-4 w-4 text-primary" />}
+                <h3 className="text-sm font-semibold text-card-foreground">{info.name}</h3>
+              </div>
+              <p className="text-lg font-bold text-card-foreground">{info.price}</p>
+              <p className="text-xs text-muted-foreground mt-1">{info.description}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex flex-wrap gap-3">
+        {canUpgrade && nextTier && (
+          <button
+            onClick={() => handleTierChange(nextTier)}
+            disabled={actionLoading !== null}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {actionLoading === nextTier ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Upgrading…</>
+            ) : (
+              <>Upgrade to {TIER_INFO[nextTier].name} <ArrowUpRight className="h-4 w-4" /></>
+            )}
+          </button>
+        )}
+
+        {canDowngrade && prevTier && (
+          <button
+            onClick={() => handleTierChange(prevTier)}
+            disabled={actionLoading !== null}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+          >
+            {actionLoading === prevTier ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Downgrading…</>
+            ) : (
+              <>Downgrade to {TIER_INFO[prevTier].name} <ArrowDownRight className="h-4 w-4" /></>
+            )}
+          </button>
+        )}
+
+        {subscriptionStatus !== 'cancelled' && (
+          <button
+            onClick={() => setShowCancelModal(true)}
+            disabled={actionLoading !== null}
+            className="inline-flex items-center gap-2 px-4 py-2 text-red-600 dark:text-red-400 text-sm font-medium rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+          >
+            <XCircle className="h-4 w-4" /> Cancel Subscription
+          </button>
+        )}
+      </div>
+
+      {/* Cancel confirmation modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Cancel Subscription?
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              You will lose access to premium features at the end of your current billing period.
+              Your data will be preserved for 30 days.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleCancel}
+                disabled={actionLoading === 'cancel'}
+                className="flex-1 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {actionLoading === 'cancel' ? 'Cancelling…' : 'Yes, Cancel'}
+              </button>
+              <button
+                onClick={() => setShowCancelModal(false)}
+                disabled={actionLoading !== null}
+                className="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+              >
+                Keep Subscription
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

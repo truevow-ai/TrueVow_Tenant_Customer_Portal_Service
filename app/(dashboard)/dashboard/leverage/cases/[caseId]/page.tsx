@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Briefcase, Calendar, CheckCircle, AlertCircle, Clock, DollarSign, Activity } from 'lucide-react';
+import { Briefcase, Calendar, CheckCircle, AlertCircle, Clock, DollarSign, Activity, Scale, ChevronRight } from 'lucide-react';
 import { leverageClient, CaseDetail, CaseEvent, SavedWorksheet } from '@/lib/api/leverage-client';
 import { useCompanyToast } from '@/hooks/useCompanyToast';
 
@@ -52,11 +52,22 @@ export default function CaseDetailPage() {
           <span className="mx-1.5">›</span>
           <span className="font-mono text-xs">{caseId.slice(0, 12)}...</span>
         </p>
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Case Detail</h1>
-          <StatusBadge status={detail.status} />
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Case Detail</h1>
+              <StatusBadge status={detail.status} />
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{detail.incident_type ?? 'Unknown incident'} • {detail.state ?? 'Unknown state'}</p>
+          </div>
+          <Link
+            href={`/dashboard/settle/analysis?source=leverage_case&case_id=${detail.case_id}`}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-semibold rounded-lg hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors"
+          >
+            <Scale className="h-4 w-4" /> Run SETTLE
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{detail.incident_type ?? 'Unknown incident'} • {detail.state ?? 'Unknown state'}</p>
       </div>
 
       {/* Overview Cards */}

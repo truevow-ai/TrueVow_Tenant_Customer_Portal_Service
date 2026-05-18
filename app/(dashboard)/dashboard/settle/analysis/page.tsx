@@ -9,6 +9,7 @@ import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { useTenant } from '@/hooks/useTenant';
 import { useCompanyToast } from '@/hooks/useCompanyToast';
 import { settleClient, type EstimateResponse } from '@/lib/api/settle-client';
+import { leverageClient, type CaseDetail } from '@/lib/api/leverage-client';
 import { PilotModeBanner } from '@/components/settle/PilotModeBanner';
 
 //  Mock case data  will come from INTAKE API 
@@ -232,6 +233,7 @@ function CaseAnalysisInner() {
   const caseId = searchParams.get('case_id') || '';
   const source = searchParams.get('source') || '';
   const isLeverageImport = source === 'leverage_damages';
+  const isLeverageCase = source === 'leverage_case';
   const { features, hasFeature } = useFeatureAccess();
   const { tenantId } = useTenant();
   const toast = useCompanyToast();
@@ -255,6 +257,21 @@ function CaseAnalysisInner() {
   const [quotePrice, setQuotePrice] = useState<number | null>(null);
   const [reportData, setReportData] = useState<any>(null);
 
+  // LEVERAGE case details (fetched when source=leverage_case)
+  const [leverageCaseDetail, setLeverageCaseDetail] = useState<CaseDetail | null>(null);
+  const [leverageCaseLoading, setLeverageCaseLoading] = useState(isLeverageCase);
+
+  useEffect(() => {
+    if (!isLeverageCase || !caseId) return;
+    let cancelled = false;
+    setLeverageCaseLoading(true);
+    leverageClient.getCaseDetail(caseId)
+      .then((detail) => { if (!cancelled) setLeverageCaseDetail(detail); })
+      .catch(() => { if (!cancelled) setLeverageCaseDetail(null); })
+      .finally(() => { if (!cancelled) setLeverageCaseLoading(false); });
+    return () => { cancelled = true; };
+  }, [isLeverageCase, caseId]);
+
   // Direct import from LEVERAGE Damages Calculator
   const leverageData = isLeverageImport ? {
     medical_bills: Number(searchParams.get('medical_bills') || 0),
@@ -265,7 +282,7 @@ function CaseAnalysisInner() {
     liability_pct: Number(searchParams.get('liability_pct') || 100),
   } : null;
 
-  const caseData = !isLeverageImport ? (MOCK_CASES[caseId] || null) : null;
+  const caseData = (!isLeverageImport && !isLeverageCase) ? (MOCK_CASES[caseId] || null) : null;
 
   // Live settlement intelligence from backend (fetched after billing flow succeeds)
   const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
@@ -291,6 +308,20 @@ function CaseAnalysisInner() {
               medical_bills: caseData.medical_specials,
               severity: caseData.injury_severity,
               liability_strength: caseData.liability_strength,
+            }
+          : leverageCaseDetail
+          ? {
+              jurisdiction: leverageCaseDetail.state || '',
+              case_type: leverageCaseDetail.incident_type || 'Personal Injury',
+              injury_category: ['General'],
+              medical_bills: 0,
+              ...(leverageCaseDetail.litigation_stage && { liability_strength: leverageCaseDetail.litigation_stage }),
+              ...(leverageCaseDetail.saved_damages && {
+                additional_factors: {
+                  gross_damages: leverageCaseDetail.saved_damages.result_json?.gross_damages || 0,
+                  liability_pct: 100,
+                },
+              }),
             }
           : leverageData
           ? {
@@ -339,8 +370,20 @@ function CaseAnalysisInner() {
   const fmt = (n: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
 
-  if (!isLeverageImport && !caseData) {
+  if (leverageCaseLoading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-gray-400 p-8">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading case from LEVERAGE…
+      </div>
+    );
+  }
+
+  if (!isLeverageImport && !isLeverageCase && !caseData) {
     return <div className="text-sm text-gray-500 p-8">Case not found.</div>;
+  }
+
+  if (isLeverageCase && !leverageCaseDetail) {
+    return <div className="text-sm text-gray-500 p-8">LEVERAGE case not found. <Link href="/dashboard/leverage/cases" className="text-blue-600 underline">View your cases</Link>.</div>;
   }
 
   return (
@@ -356,7 +399,13 @@ function CaseAnalysisInner() {
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs text-gray-400 uppercase tracking-widest mb-0.5">Settlement Intelligence</p>
-          {isLeverageImport && leverageData ? (
+          {isLeverageCase && leverageCaseDetail ? (
+            <>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 font-mono">{leverageCaseDetail.case_id.slice(0, 12)}…</h1>
+              <p className="text-sm text-gray-500 mt-0.5">{leverageCaseDetail.incident_type ?? 'Unknown incident'}  {leverageCaseDetail.state ?? '—'}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Status: {leverageCaseDetail.litigation_stage ?? 'lead'}  Opened {new Date(leverageCaseDetail.created_at).toLocaleDateString()}</p>
+            </>
+          ) : isLeverageImport && leverageData ? (
             <>
               <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Direct Case Analysis</h1>
               <p className="text-sm text-gray-500 mt-0.5">Imported from LEVERAGE Damages Calculator · {fmt(leverageData.gross_damages)} gross damages</p>
@@ -384,7 +433,48 @@ function CaseAnalysisInner() {
         </button>
         {inputsExpanded && (
           <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4">
-            {isLeverageImport && leverageData ? (
+            {isLeverageCase && leverageCaseDetail ? (
+              <>
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg px-3 py-2 mb-4">
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    Case details pulled from LEVERAGE. Run SETTLE analysis to see comparable settlement data.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                  {[
+                    ['Case ID',             leverageCaseDetail.case_id.slice(0, 12) + '…'],
+                    ['Incident Type',       leverageCaseDetail.incident_type ?? '—'],
+                    ['State',               leverageCaseDetail.state ?? '—'],
+                    ['Litigation Stage',    leverageCaseDetail.litigation_stage ?? '—'],
+                    ['Status',              leverageCaseDetail.status ?? '—'],
+                    ['Created',             new Date(leverageCaseDetail.created_at).toLocaleDateString()],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex flex-col">
+                      <span className="text-xs text-gray-400">{label}</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{value}</span>
+                    </div>
+                  ))}
+                </div>
+                {leverageCaseDetail.saved_damages && (
+                  <>
+                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                      <p className="text-xs text-gray-400 mb-2">Saved Damages Worksheet</p>
+                      <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                        {[
+                          ['Gross Damages', fmt(leverageCaseDetail.saved_damages.result_json?.gross_damages ?? 0)],
+                          ['Settlement Range', `${fmt(leverageCaseDetail.saved_damages.result_json?.settlement_range_low ?? 0)} – ${fmt(leverageCaseDetail.saved_damages.result_json?.settlement_range_high ?? 0)}`],
+                        ].map(([label, value]) => (
+                          <div key={label} className="flex flex-col">
+                            <span className="text-xs text-gray-400">{label}</span>
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </>
+            ) : isLeverageImport && leverageData ? (
               <>
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg px-3 py-2 mb-4">
                   <p className="text-xs text-blue-700 dark:text-blue-300">

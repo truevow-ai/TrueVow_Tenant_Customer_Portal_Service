@@ -29,7 +29,7 @@ interface FeatureContextValue {
   tier: Tier;
   
   // Convenience methods
-  hasFeature: (feature: 'intake' | 'draft' | 'settle') => boolean;
+  hasFeature: (feature: 'intake' | 'leverage' | 'settle') => boolean;
   isPhaseOne: boolean; // Phase I = INTAKE only
 }
 
@@ -74,15 +74,15 @@ export function FeatureProvider({ children }: { children: ReactNode }) {
     fetchFeatures();
   }, [tenantId, tenantLoading]);
 
-  const hasFeature = (feature: 'intake' | 'draft' | 'settle'): boolean => {
+  const hasFeature = (feature: 'intake' | 'leverage' | 'settle'): boolean => {
     if (!features) return false;
     return features.features[feature]?.enabled ?? false;
   };
 
-  // Phase I = Only INTAKE is available (DRAFT, SETTLE, CONNECT hidden)
+  // Phase I = Only INTAKE is available (LEVERAGE, SETTLE, CONNECT hidden)
   // This can be overridden by environment variable for testing
-  const isPhaseOne = process.env.NEXT_PUBLIC_PHASE_ONE === 'true' || 
-                     (!features?.features.draft?.enabled && !features?.features.settle?.enabled);
+  const isPhaseOne = process.env.NEXT_PUBLIC_PHASE_ONE === 'true' ||
+                     (!features?.features.leverage?.enabled && !features?.features.settle?.enabled);
 
   const value: FeatureContextValue = {
     features,

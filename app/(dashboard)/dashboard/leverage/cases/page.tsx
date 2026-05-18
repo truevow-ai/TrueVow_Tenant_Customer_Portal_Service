@@ -234,6 +234,13 @@ export default function CasesPage() {
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{new Date(c.created_at).toLocaleDateString()}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
+                        <Link
+                          href={`/dashboard/settle/analysis?source=leverage_case&case_id=${c.case_id}`}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-medium rounded hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors"
+                          title="Run SETTLE settlement intelligence analysis"
+                        >
+                          <Scale className="h-3 w-3" /> SETTLE
+                        </Link>
                         {(c.litigation_stage === 'settled' || c.litigation_stage === 'closed') && (
                           <Link
                             href={`/dashboard/settle/contribute?case_id=${c.case_id}&county=${encodeURIComponent(c.state ? c.state + ' County, ' + c.state : '')}&incident_type=${encodeURIComponent(c.incident_type || '')}`}

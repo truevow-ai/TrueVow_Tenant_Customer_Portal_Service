@@ -8,7 +8,7 @@
 import { test, expect, Page } from '@playwright/test';
 
 // Test configuration
-const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3001';
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3031';`nconst AUTH_BYPASS = '?preview=bypass';
 const TEST_TIMEOUT = 30000;
 
 // Mock subscription data
@@ -83,7 +83,7 @@ async function takeScreenshot(page: Page, name: string) {
 test.describe('Navigation & Access Control', () => {
   test('User sees only subscribed services in navigation', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.partialServices);
-    await page.goto(`${BASE_URL}/dashboard`);
+    await page.goto(`${BASE_URL}/dashboard${AUTH_BYPASS}`);
     
     // Should see INTAKE and SETTLE
     await expect(page.locator('text=Intake & Leads')).toBeVisible();
@@ -105,7 +105,7 @@ test.describe('Navigation & Access Control', () => {
     await mockSubscription(page, mockSubscriptions.noServices);
     
     // Try to access SETTLE without subscription
-    await page.goto(`${BASE_URL}/dashboard/settle`);
+    await page.goto(`${BASE_URL}/dashboard/settle${AUTH_BYPASS}`);
     
     // Should see upgrade prompt
     await expect(page.locator('text=Upgrade to SETTLE')).toBeVisible();
@@ -118,7 +118,7 @@ test.describe('Navigation & Access Control', () => {
 
   test('User can navigate between all pages', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.allServices);
-    await page.goto(`${BASE_URL}/dashboard`);
+    await page.goto(`${BASE_URL}/dashboard${AUTH_BYPASS}`);
     
     // Test navigation to each service
     const navItems = [
@@ -149,7 +149,7 @@ test.describe('Navigation & Access Control', () => {
 test.describe('Team Management', () => {
   test('User can view team members', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.allServices);
-    await page.goto(`${BASE_URL}/dashboard/team`);
+    await page.goto(`${BASE_URL}/dashboard/team${AUTH_BYPASS}`);
     
     // Should see team members list
     await expect(page.locator('text=Team Management')).toBeVisible();
@@ -161,7 +161,7 @@ test.describe('Team Management', () => {
 
   test('User can invite new team member', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.allServices);
-    await page.goto(`${BASE_URL}/dashboard/team`);
+    await page.goto(`${BASE_URL}/dashboard/team${AUTH_BYPASS}`);
     
     // Click invite button
     await page.click('text=Invite Member');
@@ -185,7 +185,7 @@ test.describe('Team Management', () => {
 
   test('User cannot invite without selecting services', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.allServices);
-    await page.goto(`${BASE_URL}/dashboard/team/invite`);
+    await page.goto(`${BASE_URL}/dashboard/team/invite${AUTH_BYPASS}`);
     
     // Fill form but don't select services
     await page.fill('input[type="email"]', 'new.member@lawfirm.com');
@@ -201,7 +201,7 @@ test.describe('Team Management', () => {
 
   test('User can edit team member service access', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.allServices);
-    await page.goto(`${BASE_URL}/dashboard/team`);
+    await page.goto(`${BASE_URL}/dashboard/team${AUTH_BYPASS}`);
     
     // Click edit button on first team member
     const editButtons = page.locator('text=Edit');
@@ -219,7 +219,7 @@ test.describe('Team Management', () => {
 
 test.describe('Notifications & Messages', () => {
   test('User can view notifications', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/notifications`);
+    await page.goto(`${BASE_URL}/dashboard/notifications${AUTH_BYPASS}`);
     
     // Should see notifications page
     await expect(page.locator('text=Notifications')).toBeVisible();
@@ -231,7 +231,7 @@ test.describe('Notifications & Messages', () => {
   });
 
   test('User can mark notifications as read', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/notifications`);
+    await page.goto(`${BASE_URL}/dashboard/notifications${AUTH_BYPASS}`);
     
     // Click mark all read
     await page.click('text=Mark All Read');
@@ -241,7 +241,7 @@ test.describe('Notifications & Messages', () => {
   });
 
   test('User can click notification action links', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/notifications`);
+    await page.goto(`${BASE_URL}/dashboard/notifications${AUTH_BYPASS}`);
     
     // Find a notification with action link
     const actionLinks = page.locator('text=View Details');
@@ -253,7 +253,7 @@ test.describe('Notifications & Messages', () => {
   });
 
   test('User can view messages inbox', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/notifications`);
+    await page.goto(`${BASE_URL}/dashboard/notifications${AUTH_BYPASS}`);
     
     // Scroll to messages section
     await page.locator('text=Messages').scrollIntoViewIfNeeded();
@@ -267,7 +267,7 @@ test.describe('Notifications & Messages', () => {
 
 test.describe('Settings & Profile Management', () => {
   test('User can view settings page', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/settings`);
+    await page.goto(`${BASE_URL}/dashboard/settings${AUTH_BYPASS}`);
     
     // Should see all settings sections
     await expect(page.locator('text=Profile')).toBeVisible();
@@ -279,7 +279,7 @@ test.describe('Settings & Profile Management', () => {
   });
 
   test('User can update profile information', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/settings`);
+    await page.goto(`${BASE_URL}/dashboard/settings${AUTH_BYPASS}`);
     
     // Update name
     const nameInput = page.locator('input[type="text"]').first();
@@ -302,7 +302,7 @@ test.describe('Settings & Profile Management', () => {
   });
 
   test('User can change password', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/settings`);
+    await page.goto(`${BASE_URL}/dashboard/settings${AUTH_BYPASS}`);
     
     // Scroll to security section
     await page.locator('text=Security').scrollIntoViewIfNeeded();
@@ -322,7 +322,7 @@ test.describe('Settings & Profile Management', () => {
   });
 
   test('User can access forgot password page', async ({ page }) => {
-    await page.goto(`${BASE_URL}/forgot-password`);
+    await page.goto(`${BASE_URL}/forgot-password${AUTH_BYPASS}`);
     
     // Should see forgot password form
     await expect(page.locator('text=Forgot Password?')).toBeVisible();
@@ -331,7 +331,7 @@ test.describe('Settings & Profile Management', () => {
   });
 
   test('User can request password reset', async ({ page }) => {
-    await page.goto(`${BASE_URL}/forgot-password`);
+    await page.goto(`${BASE_URL}/forgot-password${AUTH_BYPASS}`);
     
     // Enter email
     await page.fill('input[type="email"]', 'user@lawfirm.com');
@@ -345,7 +345,7 @@ test.describe('Settings & Profile Management', () => {
   });
 
   test('User can update notification preferences', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/settings`);
+    await page.goto(`${BASE_URL}/dashboard/settings${AUTH_BYPASS}`);
     
     // Scroll to notifications section
     await page.locator('text=Notifications').last().scrollIntoViewIfNeeded();
@@ -364,7 +364,7 @@ test.describe('Settings & Profile Management', () => {
   });
 
   test('User can update firm information', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/settings`);
+    await page.goto(`${BASE_URL}/dashboard/settings${AUTH_BYPASS}`);
     
     // Scroll to firm information section
     await page.locator('text=Firm Information').scrollIntoViewIfNeeded();
@@ -388,7 +388,7 @@ test.describe('Settings & Profile Management', () => {
 test.describe('Billing & Subscriptions', () => {
   test('User can view billing page', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.allServices);
-    await page.goto(`${BASE_URL}/dashboard/billing`);
+    await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
     
     // Should see billing page
     await expect(page.locator('text=Billing & Usage')).toBeVisible();
@@ -398,7 +398,7 @@ test.describe('Billing & Subscriptions', () => {
 
   test('User can see service subscription status', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.allServices);
-    await page.goto(`${BASE_URL}/dashboard/billing`);
+    await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
     
     // Should see all services with status
     await expect(page.locator('text=INTAKE')).toBeVisible();
@@ -410,7 +410,7 @@ test.describe('Billing & Subscriptions', () => {
 
   test('User can see inactive services with subscribe button', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.partialServices);
-    await page.goto(`${BASE_URL}/dashboard/billing`);
+    await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`);
     
     // Inactive services should show subscribe button
     const subscribeButtons = page.locator('text=Subscribe');
@@ -425,7 +425,7 @@ test.describe('Billing & Subscriptions', () => {
 test.describe('SETTLE Service', () => {
   test('User can access SETTLE dashboard when subscribed', async ({ page }) => {
     await mockSubscription(page, { ...mockSubscriptions.noServices, settle: true });
-    await page.goto(`${BASE_URL}/dashboard/settle`);
+    await page.goto(`${BASE_URL}/dashboard/settle${AUTH_BYPASS}`);
     
     // Should see SETTLE dashboard
     await expect(page.locator('text=SETTLE')).toBeVisible();
@@ -435,7 +435,7 @@ test.describe('SETTLE Service', () => {
 
   test('User sees upgrade prompt when not subscribed to SETTLE', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.noServices);
-    await page.goto(`${BASE_URL}/dashboard/settle`);
+    await page.goto(`${BASE_URL}/dashboard/settle${AUTH_BYPASS}`);
     
     // Should see upgrade prompt
     await expect(page.locator('text=Upgrade to SETTLE')).toBeVisible();
@@ -454,7 +454,7 @@ test.describe('Edge Cases', () => {
       route.abort('failed');
     });
     
-    await page.goto(`${BASE_URL}/dashboard`);
+    await page.goto(`${BASE_URL}/dashboard${AUTH_BYPASS}`);
     
     // Page should still load (with error handling)
     await expect(page.locator('text=Dashboard') || page.locator('text=Error')).toBeVisible();
@@ -467,7 +467,7 @@ test.describe('Edge Cases', () => {
       route.continue();
     });
     
-    await page.goto(`${BASE_URL}/dashboard/team`);
+    await page.goto(`${BASE_URL}/dashboard/team${AUTH_BYPASS}`);
     
     // Should show loading state or handle timeout
     // This depends on implementation
@@ -483,7 +483,7 @@ test.describe('Edge Cases', () => {
       });
     });
     
-    await page.goto(`${BASE_URL}/dashboard/settle`);
+    await page.goto(`${BASE_URL}/dashboard/settle${AUTH_BYPASS}`);
     
     // Should handle error gracefully (fail closed - no access)
     // Should show error message or redirect
@@ -499,7 +499,7 @@ test.describe('Edge Cases', () => {
       });
     });
     
-    await page.goto(`${BASE_URL}/dashboard/team`);
+    await page.goto(`${BASE_URL}/dashboard/team${AUTH_BYPASS}`);
     
     // Should show empty state or "No team members" message
     await expect(page.locator('text=Team Management')).toBeVisible();
@@ -515,14 +515,14 @@ test.describe('Edge Cases', () => {
       });
     });
     
-    await page.goto(`${BASE_URL}/dashboard/notifications`);
+    await page.goto(`${BASE_URL}/dashboard/notifications${AUTH_BYPASS}`);
     
     // Should show "No notifications yet" or empty state
     await expect(page.locator('text=Notifications')).toBeVisible();
   });
 
   test('User form validation works correctly', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/team/invite`);
+    await page.goto(`${BASE_URL}/dashboard/team/invite${AUTH_BYPASS}`);
     
     // Try to submit empty form
     await page.click('text=Send Invitation');
@@ -534,7 +534,7 @@ test.describe('Edge Cases', () => {
   });
 
   test('User can navigate back from forms', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard/team/invite`);
+    await page.goto(`${BASE_URL}/dashboard/team/invite${AUTH_BYPASS}`);
     
     // Click cancel or back button
     const cancelButton = page.locator('text=Cancel');
@@ -555,7 +555,7 @@ test.describe('Responsive Design', () => {
     // Set mobile viewport
     await page.setViewportSize({ width: 375, height: 667 });
     
-    await page.goto(`${BASE_URL}/dashboard`);
+    await page.goto(`${BASE_URL}/dashboard${AUTH_BYPASS}`);
     
     // On mobile, sidebar might be hidden or show hamburger menu
     // This depends on implementation
@@ -566,7 +566,7 @@ test.describe('Responsive Design', () => {
     // Set tablet viewport
     await page.setViewportSize({ width: 768, height: 1024 });
     
-    await page.goto(`${BASE_URL}/dashboard/team`);
+    await page.goto(`${BASE_URL}/dashboard/team${AUTH_BYPASS}`);
     
     // Should display correctly on tablet
     await expect(page.locator('text=Team Management')).toBeVisible();
@@ -579,7 +579,7 @@ test.describe('Responsive Design', () => {
 
 test.describe('Accessibility', () => {
   test('All interactive elements are keyboard accessible', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard`);
+    await page.goto(`${BASE_URL}/dashboard${AUTH_BYPASS}`);
     
     // Tab through navigation
     await page.keyboard.press('Tab');
@@ -591,7 +591,7 @@ test.describe('Accessibility', () => {
   });
 
   test('Images have alt text', async ({ page }) => {
-    await page.goto(`${BASE_URL}/dashboard`);
+    await page.goto(`${BASE_URL}/dashboard${AUTH_BYPASS}`);
     
     // Check for images without alt text
     const images = page.locator('img');

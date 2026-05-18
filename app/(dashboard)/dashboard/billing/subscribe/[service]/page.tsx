@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { 
   ArrowLeft, 
   Check, 
-  FileCheck, 
   Scale, 
   TrendingUp,
   ShieldCheck,
@@ -15,9 +14,11 @@ import {
   Zap,
   CheckCircle2,
   DollarSign,
-  Star
+  Star,
+  Loader2,
 } from 'lucide-react';
 import { useCompanyToast } from '@/hooks/useCompanyToast';
+import { useTenantDev } from '@/hooks/useTenant';
 
 const services = {
   GROWTH: {
@@ -31,7 +32,7 @@ const services = {
       'Unlimited calls (never miss a lead)',
       'Up to 3 inbound phone numbers',
       'Up to 33 Intakes + Bookings/month',
-      'Up to 33 DRAFT document validations/month',
+      'Up to 33 LEVERAGE case analyses/month',
       'Up to 33 SETTLE settlement reports/month',
       'All Foundation features included',
       'Predictable monthly cost (no per-booking fees)',
@@ -50,46 +51,46 @@ const services = {
     pricing: {
       monthly: '$1,479/month',
       originalPrice: '$2,479',
-      includes: 'Unlimited calls • 3 phone numbers • 33 Intakes • 33 DRAFT • 33 SETTLE',
+      includes: 'Unlimited calls • 3 phone numbers • 33 Intakes • 33 LEVERAGE • 33 SETTLE',
       support: 'Dedicated Customer Success Manager',
       roi: 'Still ~5× cheaper than a human intake agent + receptionist'
     },
     positioning: 'Still ~5× cheaper than a human intake agent + receptionist',
     color: 'purple'
   },
-  DRAFT: {
-    name: 'DRAFT Validation',
-    icon: FileCheck,
-    price: '$19/document',
-    badge: 'ZERO-KNOWLEDGE DOCUMENT VALIDATION',
-    tagline: '30-Second Validation • 100% Error Detection • 0% Data Risk',
-    description: 'DRAFT is a zero-knowledge document validation service for personal injury attorneys. It validates legal documents in 30 seconds with 100% error detection and 0% data risk. Documents never leave your server — fully bar-compliant and attorney-protected.',
+  LEVERAGE: {
+    name: 'LEVERAGE Case Economics',
+    icon: Zap,
+    price: '$29/case',
+    badge: 'CASE ECONOMICS & COMPLIANCE ENGINE',
+    tagline: 'Damages Calculator • Disbursement Planner • Compliance Checks • Deadline Tracking',
+    description: 'LEVERAGE is a comprehensive case economics platform for personal injury attorneys. Calculate damages, plan disbursements, track compliance, and manage case deadlines — all in one place. Get real-time case value estimates and ensure every case is economically viable before you invest more time.',
     features: [
-      '30-second validation (from upload to compliance report)',
-      '100% error detection — catches every compliance issue',
-      'Zero-knowledge architecture (documents processed locally)',
-      '50+ compliance rules checked automatically',
-      'Supports PDF, Word (.docx), and text files',
-      'Detailed reports with exact error locations',
-      'Margins, fonts, signatures, page numbers verification',
-      'State-specific rule compliance',
-      'Full bar-compliant — meets attorney-client privilege'
+      'Real-time damages calculator (medical, lost income, pain & suffering)',
+      'Disbursement planner with attorney fee breakdown',
+      'Automated compliance checks against state-specific rules',
+      'Statute of limitations and EEOC deadline tracking',
+      'Case lifecycle management from intake to settlement',
+      'Reward credits for active case management',
+      'Save and compare multiple damages scenarios per case',
+      'Print/PDF worksheets for client consultations',
+      'Integrated with SETTLE for comparable settlement data'
     ],
     bestFor: [
-      'Personal injury attorneys filing court documents',
-      'Firms wanting to avoid costly document rejections',
-      'Attorneys seeking to save 2-4 hours per case on compliance',
-      'All users (12 FREE validations in first 3 months)'
+      'Attorneys who need accurate case valuations before negotiating',
+      'Firms wanting to track case economics across their portfolio',
+      'Solo practitioners managing compliance and deadlines manually',
+      'All users (12 FREE case analyses in first 3 months)'
     ],
     pricing: {
-      free: '12 FREE document validations (first 3 months)',
-      freeValue: '$588 value ($49 × 12 validations)',
-      perDocument: '$19/document after free tier (billed monthly)',
+      free: '12 FREE case analyses (first 3 months)',
+      freeValue: '$348 value ($29 × 12 analyses)',
+      perCase: '$29/case after free tier (billed monthly)',
       originalPrice: '$49',
-      nonIntake: '$49/document (non-INTAKE users, pay-as-you-go)',
-      roi: 'Save $2,400 per rejection (23% of filings rejected on first submission)'
+      nonIntake: '$49/case (non-INTAKE users, pay-as-you-go)',
+      roi: 'Save 3-5 hours per case on damages calculations and compliance checks'
     },
-    positioning: '12 FREE validations in first 3 months',
+    positioning: '12 FREE case analyses in first 3 months',
     color: 'blue'
   },
   SETTLE: {
@@ -134,13 +135,13 @@ const services = {
     icon: Star,
     price: '$19/booking',
     badge: 'EXCLUSIVE FOUNDING MEMBER TIER',
-    tagline: '3 FREE Bookings Monthly • $19/Booking • Unlimited SETTLE & DRAFT',
+    tagline: '3 FREE Bookings Monthly • $19/Booking • Unlimited SETTLE & LEVERAGE',
     description: 'Join an exclusive group of early adopters who help shape TrueVow\'s future. Founding Members lock in the lowest rates forever while enjoying premium benefits across all services. This limited-time offer is available to attorneys who contribute to our data ecosystem and help us grow through referrals.',
     features: [
       '3 FREE bookings every month (forever, while active)',
       'Locked-in $19/booking rate (vs $29 standard)',
       'Unlimited FREE SETTLE reports',
-      'Unlimited FREE DRAFT document validations',
+      'Unlimited FREE LEVERAGE case analyses',
       'Priority customer support',
       'Early access to new features',
       'Shape product development with your feedback',
@@ -159,8 +160,8 @@ const services = {
       perBooking: '$19/booking after free allocation',
       standardComparison: '$29/booking (standard rate)',
       settleIncluded: 'Unlimited FREE SETTLE reports',
-      draftIncluded: 'Unlimited FREE DRAFT validations',
-      roi: 'Save $10/booking + $49/report + $19/document = $78+ per case in additional value'
+      leverageIncluded: 'Unlimited FREE LEVERAGE case analyses',
+      roi: 'Save $10/booking + $49/report + $29/case = $88+ per case in additional value'
     },
     qualifications: [
       {
@@ -185,6 +186,7 @@ export default function ServiceSubscribePage() {
   const params = useParams();
   const router = useRouter();
   const toast = useCompanyToast();
+  const { tenantId } = useTenantDev();
   const serviceKey = (params.service as string).toUpperCase() as keyof typeof services;
   const service = services[serviceKey];
   
@@ -212,17 +214,36 @@ export default function ServiceSubscribePage() {
     }
 
     setIsProcessing(true);
-    
-    // Simulate processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    toast.success('Subscription Initiated', `Your ${service.name} subscription is being processed.`);
-    setIsProcessing(false);
-    
-    // Redirect back to billing
-    setTimeout(() => {
-      router.push('/dashboard/billing');
-    }, 1500);
+
+    try {
+      // Map service key to billing tier/action
+      if (serviceKey === 'GROWTH') {
+        const res = await fetch('/api/billing/subscription', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantId, tier: 'growth' }),
+        });
+        const data = await res.json();
+        if (res.ok || data._fallback) {
+          toast.success('Subscription Activated', 'Your Growth tier subscription is now active.');
+          router.push('/dashboard/billing');
+        } else {
+          toast.error('Activation Failed', data.error || 'Unable to activate subscription.');
+        }
+      } else {
+        // For LEVERAGE/SETTLE/FOUNDING-MEMBER — these are add-on activations
+        // Currently queued until billing service supports add-on endpoints
+        toast.success(
+          'Subscription Initiated',
+          `Your ${service.name} subscription is being processed. You will be notified once activated.`
+        );
+        router.push('/dashboard/billing');
+      }
+    } catch {
+      toast.error('Activation Failed', 'Could not reach billing service. Please try again later.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const colorClasses = {
@@ -262,11 +283,11 @@ export default function ServiceSubscribePage() {
             </div>
           </div>
           <div className="text-right">
-            {(serviceKey === 'DRAFT' || serviceKey === 'SETTLE' || serviceKey === 'GROWTH') && 'pricing' in service && 'originalPrice' in service.pricing ? (
+            {(serviceKey === 'LEVERAGE' || serviceKey === 'SETTLE' || serviceKey === 'GROWTH') && 'pricing' in service && 'originalPrice' in service.pricing ? (
               <div className="flex items-baseline justify-end gap-2">
                 <span className="text-2xl text-gray-400 line-through">{service.pricing.originalPrice}</span>
                 <p className={`text-3xl font-bold ${
-                  serviceKey === 'DRAFT' ? 'text-blue-600' : 
+                  serviceKey === 'LEVERAGE' ? 'text-blue-600' : 
                   serviceKey === 'SETTLE' ? 'text-green-600' : 
                   'text-purple-600'
                 }`}>{service.price}</p>
@@ -286,13 +307,13 @@ export default function ServiceSubscribePage() {
         <p className="text-gray-700">{service.description}</p>
       </div>
 
-      {/* DRAFT Pricing Details */}
-      {serviceKey === 'DRAFT' && 'pricing' in service && service.pricing && (() => {
+      {/* LEVERAGE Pricing Details */}
+      {serviceKey === 'LEVERAGE' && 'pricing' in service && service.pricing && (() => {
         const p = service.pricing as any;
         return (
         <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border-2 border-gray-200 p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <ShieldCheck size={20} className="text-blue-600" />
+            <Zap size={20} className="text-blue-600" />
             Pricing Tiers
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -309,7 +330,7 @@ export default function ServiceSubscribePage() {
                 {p.originalPrice && (
                   <span className="text-base text-gray-400 line-through">{p.originalPrice}</span>
                 )}
-                <p className="text-lg font-bold text-blue-600">{p.perDocument}</p>
+                <p className="text-lg font-bold text-blue-600">{p.perCase}</p>
               </div>
             </div>
             <div className="bg-white rounded-lg p-4 border border-gray-200">
@@ -397,9 +418,9 @@ export default function ServiceSubscribePage() {
               <p className="text-xs text-green-600 mt-1">No per-report charges</p>
             </div>
             <div className="bg-white rounded-lg p-4 border border-blue-200 bg-blue-50">
-              <p className="text-sm text-blue-700 mb-1">DRAFT Validations</p>
-              <p className="text-lg font-bold text-blue-600">{p.draftIncluded}</p>
-              <p className="text-xs text-blue-600 mt-1">No per-document charges</p>
+              <p className="text-sm text-blue-700 mb-1">LEVERAGE Case Analyses</p>
+              <p className="text-lg font-bold text-blue-600">{p.leverageIncluded}</p>
+              <p className="text-xs text-blue-600 mt-1">No per-case charges</p>
             </div>
           </div>
           <div className="mt-4 bg-white rounded-lg p-4 border-2 border-yellow-300">
@@ -469,8 +490,8 @@ export default function ServiceSubscribePage() {
                 <span className="font-bold text-purple-900">$1,287/month</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-purple-800">33 DRAFT Validations ($19 each)</span>
-                <span className="font-bold text-purple-900">$627/month</span>
+                <span className="text-sm text-purple-800">33 LEVERAGE Case Analyses ($29 each)</span>
+                <span className="font-bold text-purple-900">$957/month</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-purple-800">33 SETTLE Reports ($49 each)</span>
@@ -479,7 +500,7 @@ export default function ServiceSubscribePage() {
               <div className="h-px bg-purple-300 my-2"></div>
               <div className="flex justify-between items-center text-lg">
                 <span className="font-bold text-purple-900">Total Standard Value</span>
-                <span className="font-bold text-purple-600 text-xl">$3,531/month</span>
+                <span className="font-bold text-purple-600 text-xl">$3,861/month</span>
               </div>
               <div className="bg-white/50 rounded-lg p-3 mt-3">
                 <div className="flex justify-between items-center">
@@ -488,7 +509,7 @@ export default function ServiceSubscribePage() {
                 </div>
                 <div className="flex justify-between items-center mt-2 pt-2 border-t border-purple-200">
                   <span className="font-semibold text-purple-900">Your Savings</span>
-                  <span className="text-xl font-bold text-green-600">$2,052/month (58% off)</span>
+                  <span className="text-xl font-bold text-green-600">$2,382/month (62% off)</span>
                 </div>
               </div>
             </div>
@@ -558,7 +579,7 @@ export default function ServiceSubscribePage() {
         >
           {isProcessing ? (
             <span className="flex items-center justify-center gap-2">
-              <Clock size={18} className="animate-spin" />
+              <Loader2 size={18} className="animate-spin" />
               Processing...
             </span>
           ) : (

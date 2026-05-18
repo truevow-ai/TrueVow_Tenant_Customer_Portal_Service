@@ -69,13 +69,6 @@ export default function SettleQueryPage() {
         return;
       }
 
-      const apiKey = localStorage.getItem('settle_api_key') || process.env.NEXT_PUBLIC_SETTLE_API_KEY || '';
-      if (!apiKey) {
-        setError('SETTLE API key not found. Please contact support.');
-        setLoading(false);
-        return;
-      }
-
       const request: EstimateRequest = {
         jurisdiction,
         case_type: caseType,

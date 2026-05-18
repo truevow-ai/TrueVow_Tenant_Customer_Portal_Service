@@ -1,23 +1,16 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Scale, FileText, Users, ChevronRight, Plus } from 'lucide-react';
-
-//  Mock retained cases (will be replaced by real INTAKE API call) 
-const MOCK_RETAINED_CASES = [
-  { id: 'case-001', client_name: 'Zoey Baker',     incident: 'Slip and Fall',    county: 'Duval County, FL',      opened: '2026-02-10' },
-  { id: 'case-002', client_name: 'Marcus Webb',    incident: 'Motor Vehicle Accident',    county: 'Hillsborough County, FL', opened: '2026-01-28' },
-  { id: 'case-003', client_name: 'Diana Reyes',    incident: 'Motor Vehicle Accident',         county: 'Miami-Dade County, FL',  opened: '2026-01-15' },
-  { id: 'case-004', client_name: 'Ronald Hatch',   incident: 'Premises Liability', county: 'Orange County, FL',   opened: '2026-01-05' },
-];
+import { Scale, FileText, Users, ChevronRight, Plus, Loader2 } from 'lucide-react';
+import { leverageClient, CaseListItem } from '@/lib/api/leverage-client';
+import { settleClient, type Report } from '@/lib/api/settle-client';
+import { useTenant } from '@/hooks/useTenant';
 
 type Tab = 'analysis' | 'reports' | 'council';
 
 export default function SettlementIntelligencePage() {
   const [activeTab, setActiveTab] = useState<Tab>('analysis');
-
-  // Council access: in production this comes from tenant feature flags
   const isCouncilMember = false;
 
   return (
@@ -46,18 +39,37 @@ export default function SettlementIntelligencePage() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'analysis' && <CaseAnalysisTab cases={MOCK_RETAINED_CASES} />}
+      {activeTab === 'analysis' && <CaseAnalysisTab />}
       {activeTab === 'reports' && <ReportsTab />}
       {activeTab === 'council' && isCouncilMember && <CouncilTab />}
     </div>
   );
 }
 
-//  Case Analysis Tab 
+//  Case Analysis Tab — pulls cases from LEVERAGE
 
-function CaseAnalysisTab({ cases }: { cases: typeof MOCK_RETAINED_CASES }) {
+function CaseAnalysisTab() {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+  const [cases, setCases] = useState<CaseListItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCaseId, setSelectedCaseId] = useState('');
-  const selectedCase = cases.find(c => c.id === selectedCaseId);
+
+  useEffect(() => {
+    if (tenantLoading || !tenantId) return;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await leverageClient.listCases(tenantId, { limit: 50 });
+        setCases(res.cases);
+      } catch {
+        setCases([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [tenantId, tenantLoading]);
+
+  const selectedCase = cases.find(c => c.case_id === selectedCaseId);
 
   return (
     <div className="space-y-4">
@@ -66,25 +78,31 @@ function CaseAnalysisTab({ cases }: { cases: typeof MOCK_RETAINED_CASES }) {
         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
           Select a case
         </label>
-        <select
-          value={selectedCaseId}
-          onChange={e => setSelectedCaseId(e.target.value)}
-          className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400"
-        >
-          <option value="">Choose a retained case…</option>
-          {cases.map(c => (
-            <option key={c.id} value={c.id}>
-              {c.client_name}  {c.incident} ({c.county})
-            </option>
-          ))}
-        </select>
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading cases from LEVERAGE…
+          </div>
+        ) : (
+          <select
+            value={selectedCaseId}
+            onChange={e => setSelectedCaseId(e.target.value)}
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400"
+          >
+            <option value="">Choose a LEVERAGE case…</option>
+            {cases.map(c => (
+              <option key={c.case_id} value={c.case_id}>
+                {c.case_id.slice(0, 8)}…  {c.incident_type ?? 'Unknown'} ({c.state ?? '—'})
+              </option>
+            ))}
+          </select>
+        )}
         <p className="text-xs text-gray-400 mt-2">
-          Only retained cases appear here. Open cases are added automatically from Intake.
+          Cases are pulled from your LEVERAGE workspace. <Link href="/dashboard/leverage/cases/new" className="text-blue-600 dark:text-blue-400 hover:underline">Open a new case</Link> to get started.
         </p>
       </div>
 
       {/* No case selected */}
-      {!selectedCase && (
+      {!selectedCase && !loading && (
         <div className="text-center py-16 text-gray-400 dark:text-gray-500">
           <Scale size={40} className="mx-auto mb-3 opacity-30" />
           <p className="text-sm">Select a case above to run settlement intelligence.</p>
@@ -97,12 +115,12 @@ function CaseAnalysisTab({ cases }: { cases: typeof MOCK_RETAINED_CASES }) {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Selected case</p>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{selectedCase.client_name}</h2>
-              <p className="text-sm text-gray-500 mt-0.5">{selectedCase.incident}  {selectedCase.county}</p>
-              <p className="text-xs text-gray-400 mt-1">Opened {selectedCase.opened}</p>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 font-mono">{selectedCase.case_id.slice(0, 12)}…</h2>
+              <p className="text-sm text-gray-500 mt-0.5">{selectedCase.incident_type ?? 'Unknown incident'}  {selectedCase.state ?? '—'}</p>
+              <p className="text-xs text-gray-400 mt-1">Status: {selectedCase.litigation_stage ?? 'lead'}  Opened {new Date(selectedCase.created_at).toLocaleDateString()}</p>
             </div>
             <Link
-              href={`/dashboard/settle/analysis?case_id=${selectedCase.id}`}
+              href={`/dashboard/settle/analysis?source=leverage_case&case_id=${selectedCase.case_id}`}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-semibold rounded-lg hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors"
             >
               Run Settlement Intelligence
@@ -112,25 +130,27 @@ function CaseAnalysisTab({ cases }: { cases: typeof MOCK_RETAINED_CASES }) {
         </div>
       )}
 
-      {/* Recent analyses */}
-      <div>
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Recent analyses</h3>
-        <div className="space-y-2">
-          {cases.slice(0, 3).map(c => (
-            <Link
-              key={c.id}
-              href={`/dashboard/settle/analysis?case_id=${c.id}`}
-              className="flex items-center justify-between bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-3 hover:border-gray-400 dark:hover:border-gray-500 transition-colors group"
-            >
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{c.client_name}</p>
-                <p className="text-xs text-gray-400">{c.incident}  {c.county}</p>
-              </div>
-              <ChevronRight size={15} className="text-gray-300 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
-            </Link>
-          ))}
+      {/* Recent cases */}
+      {cases.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Your LEVERAGE cases</h3>
+          <div className="space-y-2">
+            {cases.slice(0, 5).map(c => (
+              <Link
+                key={c.case_id}
+                href={`/dashboard/settle/analysis?source=leverage_case&case_id=${c.case_id}`}
+                className="flex items-center justify-between bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-3 hover:border-gray-400 dark:hover:border-gray-500 transition-colors group"
+              >
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 font-mono">{c.case_id.slice(0, 8)}…</p>
+                  <p className="text-xs text-gray-400">{c.incident_type ?? '—'}  {c.state ?? '—'}</p>
+                </div>
+                <ChevronRight size={15} className="text-gray-300 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
+              </Link>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -138,44 +158,60 @@ function CaseAnalysisTab({ cases }: { cases: typeof MOCK_RETAINED_CASES }) {
 //  Settlement Reports Tab 
 
 function ReportsTab() {
-  // Mock reports  will be replaced with real API call
-  const reports = [
-    { id: 'rpt-001', case_name: 'Zoey Baker',   generated: '2026-03-04', confidence: 7, range: '$12,000  $18,000', status: 'ready' },
-    { id: 'rpt-002', case_name: 'Marcus Webb',  generated: '2026-02-28', confidence: 8, range: '$45,000  $72,000', status: 'ready' },
-    { id: 'rpt-003', case_name: 'Diana Reyes',  generated: '2026-02-20', confidence: 5, range: '$8,000  $14,000',  status: 'ready' },
-  ];
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    settleClient.getReports()
+      .then(setReports)
+      .catch(() => setReports([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-gray-400 py-16 justify-center">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading reports…
+      </div>
+    );
+  }
+
+  if (reports.length === 0) {
+    return (
+      <div className="text-center py-16 text-gray-400 dark:text-gray-500">
+        <FileText size={40} className="mx-auto mb-3 opacity-30" />
+        <p className="text-sm">No reports yet. Run settlement intelligence on a case to generate one.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Reports are generated per case. Each report includes settlement distribution, insurer behavior, and risk adjustments.
-        </p>
-      </div>
-
-      {reports.length === 0 && (
-        <div className="text-center py-16 text-gray-400 dark:text-gray-500">
-          <FileText size={40} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm">No reports yet. Run settlement intelligence on a case to generate one.</p>
-        </div>
-      )}
-
-      <div className="space-y-3">
-        {reports.map(r => (
-          <div key={r.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-5 py-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{r.case_name}</p>
-              <p className="text-xs text-gray-400 mt-0.5">Generated {r.generated}  Typical range {r.range}</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <ConfidenceBadge score={r.confidence} />
-              <button className="text-xs font-medium text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 border border-gray-200 dark:border-gray-600 rounded-md px-3 py-1.5 hover:border-gray-400 transition-colors">
-                Download PDF
-              </button>
-            </div>
+    <div className="space-y-3">
+      {reports.map(r => (
+        <div key={r.report_id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-5 py-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{r.title || r.report_id}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Case {r.case_id} · {r.report_type} · {new Date(r.generated_at).toLocaleDateString()}</p>
           </div>
-        ))}
-      </div>
+          <div className="flex items-center gap-4">
+            {r.confidence_score !== undefined && (
+              <ConfidenceBadge score={r.confidence_score} />
+            )}
+            {r.file_url ? (
+              <a
+                href={r.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-medium text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 border border-gray-200 dark:border-gray-600 rounded-md px-3 py-1.5 hover:border-gray-400 transition-colors"
+              >
+                Download PDF
+              </a>
+            ) : (
+              <span className="text-xs text-gray-400">PDF pending</span>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -184,6 +220,7 @@ function ReportsTab() {
 
 function CouncilTab() {
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     county: '', incident: '', injury: '', insurer: '', band: '',
     litigation_stage: '',
@@ -198,6 +235,26 @@ function CouncilTab() {
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
   const ready = Object.values(form).every(Boolean);
+
+  const handleSubmit = async () => {
+    if (!ready) return;
+    setSubmitting(true);
+    try {
+      await settleClient.submitContribution({
+        county: form.county,
+        incident: form.incident,
+        injury: form.injury,
+        insurer: form.insurer,
+        band: form.band,
+        litigation_stage: form.litigation_stage,
+      });
+      setSubmitted(true);
+    } catch {
+      // Error handled by toast in settleClient
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (submitted) {
     return (
@@ -249,11 +306,11 @@ function CouncilTab() {
         </div>
 
         <button
-          disabled={!ready}
-          onClick={() => setSubmitted(true)}
+          disabled={!ready || submitting}
+          onClick={handleSubmit}
           className="mt-5 w-full py-2.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-semibold rounded-lg disabled:opacity-40 hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors"
         >
-          Submit
+          {submitting ? 'Submitting…' : 'Submit'}
         </button>
       </div>
     </div>

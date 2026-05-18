@@ -5,7 +5,7 @@
 
 import { test, expect, Page } from '@playwright/test';
 
-const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3001';
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3031';`nconst AUTH_BYPASS = '?preview=bypass';
 
 // Mock subscription data
 const mockSubscriptions = {
@@ -47,7 +47,7 @@ async function mockSubscription(page: Page, subscription: typeof mockSubscriptio
 test.describe('SETTLE Service', () => {
   test('User can query settlement range', async ({ page }) => {
     await mockSubscription(page, { ...mockSubscriptions.noServices, settle: true });
-    await page.goto(`${BASE_URL}/dashboard/settle/query`);
+    await page.goto(`${BASE_URL}/dashboard/settle/query${AUTH_BYPASS}`);
     
     // Should see query form
     await expect(page.locator('text=Settlement Range Query')).toBeVisible();
@@ -66,7 +66,7 @@ test.describe('SETTLE Service', () => {
 
   test('User can contribute case data', async ({ page }) => {
     await mockSubscription(page, { ...mockSubscriptions.noServices, settle: true });
-    await page.goto(`${BASE_URL}/dashboard/settle/contribute`);
+    await page.goto(`${BASE_URL}/dashboard/settle/contribute${AUTH_BYPASS}`);
     
     // Should see contribution form
     await expect(page.locator('text=Contribute Case Data')).toBeVisible();
@@ -87,7 +87,7 @@ test.describe('SETTLE Service', () => {
 
   test('User can view and download reports', async ({ page }) => {
     await mockSubscription(page, { ...mockSubscriptions.noServices, settle: true });
-    await page.goto(`${BASE_URL}/dashboard/settle/reports`);
+    await page.goto(`${BASE_URL}/dashboard/settle/reports${AUTH_BYPASS}`);
     
     // Should see reports page
     await expect(page.locator('text=SETTLE Reports')).toBeVisible();
@@ -101,7 +101,7 @@ test.describe('SETTLE Service', () => {
 
   test('User sees upgrade prompt when not subscribed to SETTLE', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.noServices);
-    await page.goto(`${BASE_URL}/dashboard/settle`);
+    await page.goto(`${BASE_URL}/dashboard/settle${AUTH_BYPASS}`);
     
     await expect(page.locator('text=Upgrade to SETTLE')).toBeVisible();
     await expect(page.locator('text=Subscribe to unlock')).toBeVisible();
@@ -115,7 +115,7 @@ test.describe('SETTLE Service', () => {
 test.describe('CONNECT Service', () => {
   test('User can view referrals list', async ({ page }) => {
     await mockSubscription(page, { ...mockSubscriptions.noServices, connect: true });
-    await page.goto(`${BASE_URL}/dashboard/connect/referrals`);
+    await page.goto(`${BASE_URL}/dashboard/connect/referrals${AUTH_BYPASS}`);
     
     // Should see referrals page
     await expect(page.locator('text=Referrals')).toBeVisible();
@@ -124,7 +124,7 @@ test.describe('CONNECT Service', () => {
 
   test('User can create new referral', async ({ page }) => {
     await mockSubscription(page, { ...mockSubscriptions.noServices, connect: true });
-    await page.goto(`${BASE_URL}/dashboard/connect/referrals/new`);
+    await page.goto(`${BASE_URL}/dashboard/connect/referrals/new${AUTH_BYPASS}`);
     
     // Should see create referral form
     await expect(page.locator('text=Create Referral')).toBeVisible();
@@ -143,7 +143,7 @@ test.describe('CONNECT Service', () => {
 
   test('User can view payouts', async ({ page }) => {
     await mockSubscription(page, { ...mockSubscriptions.noServices, connect: true });
-    await page.goto(`${BASE_URL}/dashboard/connect/payouts`);
+    await page.goto(`${BASE_URL}/dashboard/connect/payouts${AUTH_BYPASS}`);
     
     // Should see payouts page
     await expect(page.locator('text=Payouts')).toBeVisible();
@@ -155,7 +155,7 @@ test.describe('CONNECT Service', () => {
 
   test('User sees upgrade prompt when not subscribed to CONNECT', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.noServices);
-    await page.goto(`${BASE_URL}/dashboard/connect`);
+    await page.goto(`${BASE_URL}/dashboard/connect${AUTH_BYPASS}`);
     
     await expect(page.locator('text=Upgrade to CONNECT')).toBeVisible();
   });
@@ -168,7 +168,7 @@ test.describe('CONNECT Service', () => {
 test.describe('VERIFY Service', () => {
   test('User can access VERIFY dashboard', async ({ page }) => {
     await mockSubscription(page, { ...mockSubscriptions.noServices, verify: true });
-    await page.goto(`${BASE_URL}/dashboard/verify`);
+    await page.goto(`${BASE_URL}/dashboard/verify${AUTH_BYPASS}`);
     
     // Should see VERIFY dashboard
     await expect(page.locator('text=VERIFY')).toBeVisible();
@@ -178,7 +178,7 @@ test.describe('VERIFY Service', () => {
 
   test('User sees upgrade prompt when not subscribed to VERIFY', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.noServices);
-    await page.goto(`${BASE_URL}/dashboard/verify`);
+    await page.goto(`${BASE_URL}/dashboard/verify${AUTH_BYPASS}`);
     
     await expect(page.locator('text=Upgrade to VERIFY')).toBeVisible();
     await expect(page.locator('text=Subscribe to unlock')).toBeVisible();
@@ -192,7 +192,7 @@ test.describe('VERIFY Service', () => {
 test.describe('INTAKE Service', () => {
   test('User can access INTAKE dashboard', async ({ page }) => {
     await mockSubscription(page, { ...mockSubscriptions.noServices, intake: true });
-    await page.goto(`${BASE_URL}/dashboard/intake`);
+    await page.goto(`${BASE_URL}/dashboard/intake${AUTH_BYPASS}`);
     
     // Should see INTAKE dashboard
     await expect(page.locator('text=Intake') || page.locator('text=Leads')).toBeVisible();
@@ -200,7 +200,7 @@ test.describe('INTAKE Service', () => {
 
   test('User sees upgrade prompt when not subscribed to INTAKE', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.noServices);
-    await page.goto(`${BASE_URL}/dashboard/intake`);
+    await page.goto(`${BASE_URL}/dashboard/intake${AUTH_BYPASS}`);
     
     await expect(page.locator('text=Upgrade to INTAKE')).toBeVisible();
   });
@@ -213,7 +213,7 @@ test.describe('INTAKE Service', () => {
 test.describe('DRAFT Service', () => {
   test('User can access DRAFT dashboard', async ({ page }) => {
     await mockSubscription(page, { ...mockSubscriptions.noServices, draft: true });
-    await page.goto(`${BASE_URL}/dashboard/draft`);
+    await page.goto(`${BASE_URL}/dashboard/draft${AUTH_BYPASS}`);
     
     // Should see DRAFT dashboard
     await expect(page.locator('text=DRAFT') || page.locator('text=Validation')).toBeVisible();
@@ -221,7 +221,7 @@ test.describe('DRAFT Service', () => {
 
   test('User sees upgrade prompt when not subscribed to DRAFT', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.noServices);
-    await page.goto(`${BASE_URL}/dashboard/draft`);
+    await page.goto(`${BASE_URL}/dashboard/draft${AUTH_BYPASS}`);
     
     await expect(page.locator('text=Upgrade to DRAFT')).toBeVisible();
   });
@@ -234,7 +234,7 @@ test.describe('DRAFT Service', () => {
 test.describe('Cross-Service Integration', () => {
   test('User can navigate between all subscribed services', async ({ page }) => {
     await mockSubscription(page, mockSubscriptions.allServices);
-    await page.goto(`${BASE_URL}/dashboard`);
+    await page.goto(`${BASE_URL}/dashboard${AUTH_BYPASS}`);
     
     // Navigate to each service
     const services = [
@@ -255,7 +255,7 @@ test.describe('Cross-Service Integration', () => {
   test('User subscription changes reflect immediately in UI', async ({ page }) => {
     // Start with no subscriptions
     await mockSubscription(page, mockSubscriptions.noServices);
-    await page.goto(`${BASE_URL}/dashboard`);
+    await page.goto(`${BASE_URL}/dashboard${AUTH_BYPASS}`);
     
     // SETTLE should not be visible
     await expect(page.locator('text=SETTLE Data Bank')).not.toBeVisible();
