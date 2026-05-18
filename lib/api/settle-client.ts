@@ -11,10 +11,16 @@ export interface EstimateRequest {
   jurisdiction: string;
   case_type: string;
   injury_category: string[];
+  medical_bills: number;
   severity?: string;
   liability_strength?: string;
   defendant_type?: string;
   additional_factors?: Record<string, unknown>;
+  // Cohort W — optional filters
+  insurance_carrier?: string;
+  injury_severity?: string;
+  court_level?: string;
+  is_verdict?: boolean;
 }
 
 /**
@@ -66,6 +72,14 @@ export interface ComparableCase {
   outcome_range: string;
   outcome_type: string;
   contributed_at: string;
+  // Cohort W — rich fields
+  insurance_carrier?: string;
+  injury_severity?: string;
+  court_level?: string;
+  is_verdict?: boolean;
+  exact_outcome_amount?: number;
+  comparative_negligence_pct?: number;
+  date_of_verdict?: string;
 }
 
 export interface ContributionRequest {
@@ -103,7 +117,10 @@ class SettleClient {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(err.error || err.detail || 'HTTP ' + res.status);
+      const msg = err.error
+        || (Array.isArray(err.detail) ? err.detail.map((d: any) => d.msg || JSON.stringify(d)).join('; ') : err.detail)
+        || 'HTTP ' + res.status;
+      throw new Error(msg);
     }
     return res.json();
   }
@@ -112,7 +129,10 @@ class SettleClient {
     const res = await fetch(SETTLE_PROXY + path);
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(err.error || err.detail || 'HTTP ' + res.status);
+      const msg = err.error
+        || (Array.isArray(err.detail) ? err.detail.map((d: any) => d.msg || JSON.stringify(d)).join('; ') : err.detail)
+        || 'HTTP ' + res.status;
+      throw new Error(msg);
     }
     return res.json();
   }

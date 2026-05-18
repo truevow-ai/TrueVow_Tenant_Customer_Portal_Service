@@ -18,10 +18,10 @@ const MOCK_CASES: Record<string, {
   liability_strength: string; policy_limit_band: string;
   insurer: string; litigation_stage: string;
 }> = {
-  'case-001': { id: 'case-001', client_name: 'Zoey Baker',   incident: 'Slip and Fall',      county: 'Duval County, FL',        injury_severity: 'Minor',    medical_specials: 8200,  liability_strength: 'Property owner awareness established', policy_limit_band: 'Unknown', insurer: 'Unknown',       litigation_stage: 'Pre-suit'  },
-  'case-002': { id: 'case-002', client_name: 'Marcus Webb',  incident: 'Auto Accident',       county: 'Hillsborough County, FL', injury_severity: 'Moderate', medical_specials: 32000, liability_strength: 'Clear liability, rear-end',            policy_limit_band: '$100k',  insurer: 'State Farm',   litigation_stage: 'Pre-suit'  },
-  'case-003': { id: 'case-003', client_name: 'Diana Reyes',  incident: 'Dog Bite',            county: 'Miami-Dade County, FL',   injury_severity: 'Minor',    medical_specials: 4100,  liability_strength: 'Strict liability state',               policy_limit_band: '$25k',   insurer: 'Allstate',     litigation_stage: 'Pre-suit'  },
-  'case-004': { id: 'case-004', client_name: 'Ronald Hatch', incident: 'Premises Liability',  county: 'Orange County, FL',       injury_severity: 'Moderate', medical_specials: 14700, liability_strength: 'Contested — no prior notice documented', policy_limit_band: '$50k',   insurer: 'Progressive',  litigation_stage: 'Suit filed' },
+  'case-001': { id: 'case-001', client_name: 'Zoey Baker',   incident: 'Slip and Fall',      county: 'Duval County, FL',        injury_severity: 'fracture',    medical_specials: 8200,  liability_strength: 'Property owner awareness established', policy_limit_band: 'Unknown', insurer: 'Unknown',       litigation_stage: 'Pre-suit'  },
+  'case-002': { id: 'case-002', client_name: 'Marcus Webb',  incident: 'Motor Vehicle Accident',       county: 'Hillsborough County, FL', injury_severity: 'spinal_injury', medical_specials: 32000, liability_strength: 'Clear liability, rear-end',            policy_limit_band: '$100k',  insurer: 'State Farm',   litigation_stage: 'Pre-suit'  },
+  'case-003': { id: 'case-003', client_name: 'Diana Reyes',  incident: 'Motor Vehicle Accident',            county: 'Miami-Dade County, FL',   injury_severity: 'traumatic_brain_injury',    medical_specials: 4100,  liability_strength: 'Strict liability state',               policy_limit_band: '$25k',   insurer: 'Allstate',     litigation_stage: 'Pre-suit'  },
+  'case-004': { id: 'case-004', client_name: 'Ronald Hatch', incident: 'Premises Liability',  county: 'Orange County, FL',       injury_severity: 'fracture', medical_specials: 14700, liability_strength: 'Contested — no prior notice documented', policy_limit_band: '$50k',   insurer: 'Progressive',  litigation_stage: 'Suit filed' },
 };
 
 // ─── SETTLE Query Button Component ──────────────────────────────────────────
@@ -288,6 +288,7 @@ function CaseAnalysisInner() {
               jurisdiction: caseData.county,
               case_type: caseData.incident,
               injury_category: [caseData.injury_severity],
+              medical_bills: caseData.medical_specials,
               severity: caseData.injury_severity,
               liability_strength: caseData.liability_strength,
             }
@@ -296,8 +297,8 @@ function CaseAnalysisInner() {
               jurisdiction: searchParams.get('jurisdiction') || '',
               case_type: searchParams.get('case_type') || 'Personal Injury',
               injury_category: [searchParams.get('injury_category') || 'General'],
+              medical_bills: leverageData.medical_bills,
               additional_factors: {
-                medical_bills: leverageData.medical_bills,
                 lost_wages: leverageData.lost_wages,
                 gross_damages: leverageData.gross_damages,
                 liability_pct: leverageData.liability_pct,
@@ -533,19 +534,94 @@ function CaseAnalysisInner() {
             {/* Comparable cases summary */}
             {estimate.comparable_cases.length > 0 && (
               <div>
-                <p className="text-xs text-gray-400 uppercase tracking-widest mb-2">Comparable cases</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-gray-400 uppercase tracking-widest">Comparable cases</p>
+                  <div className="text-sm text-gray-500">
+                    {estimate.n_cases} comparable cases
+                    {estimate.comparable_cases.some(c => c.insurance_carrier) && (
+                      <span> · {new Set(estimate.comparable_cases.map(c => c.insurance_carrier).filter(Boolean)).size} carriers represented</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Verdict-derived data disclosure */}
+                {estimate.comparable_cases.some(c => c.is_verdict === true) && (
+                  <div className="mb-3 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-md">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>Estimate includes verdict-derived data (not all settlements)</span>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   {estimate.comparable_cases.slice(0, 5).map((c, i) => (
-                    <div key={i} className="grid grid-cols-3 gap-2 text-xs border-b border-gray-100 dark:border-gray-700 pb-2">
-                      <span className="text-gray-500">{c.jurisdiction}</span>
-                      <span className="text-gray-700 dark:text-gray-300">{c.case_type}</span>
-                      <span className="text-gray-700 dark:text-gray-300 font-medium">{c.outcome_range}</span>
+                    <div key={i} className="border border-gray-100 dark:border-gray-700 rounded-lg px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                      <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                        {/* Insurance carrier badge */}
+                        {c.insurance_carrier && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+                            {c.insurance_carrier}
+                          </span>
+                        )}
+
+                        {/* Injury severity badge */}
+                        {c.injury_severity && (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            c.injury_severity === 'fatal' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300' :
+                            c.injury_severity === 'catastrophic' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300' :
+                            c.injury_severity === 'surgical' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300' :
+                            c.injury_severity === 'fracture' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300' :
+                            'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300'
+                          }`}>
+                            {c.injury_severity.replace('_', ' ')}
+                          </span>
+                        )}
+
+                        {/* Verdict vs Settlement indicator */}
+                        {c.is_verdict !== null && c.is_verdict !== undefined && (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            c.is_verdict ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300' : 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                          }`}>
+                            {c.is_verdict ? 'Verdict' : 'Settlement'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <span className="text-gray-500">{c.jurisdiction}</span>
+                        <span className="text-gray-700 dark:text-gray-300">{c.case_type}</span>
+                        <span className="text-right">
+                          {/* Exact amount if available, otherwise bucketed range */}
+                          {c.exact_outcome_amount ? (
+                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              ${c.exact_outcome_amount.toLocaleString()}
+                            </span>
+                          ) : (
+                            <span className="text-gray-700 dark:text-gray-300 font-medium">{c.outcome_range}</span>
+                          )}
+                        </span>
+                      </div>
+
+                      {/* Secondary info row */}
+                      <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                        {c.comparative_negligence_pct !== null && c.comparative_negligence_pct !== undefined && (
+                          <span>Negligence: {c.comparative_negligence_pct}%</span>
+                        )}
+                        {c.court_level && (
+                          <span>{c.court_level}</span>
+                        )}
+                        {c.date_of_verdict && (
+                          <span>{new Date(c.date_of_verdict).toLocaleDateString()}</span>
+                        )}
+                      </div>
                     </div>
                   ))}
                   {estimate.comparable_cases.length > 5 && (
-                    <p className="text-xs text-gray-400">
+                    <button
+                      onClick={() => toast.info('Full report with all ' + estimate.comparable_cases.length + ' comparable cases will be available in the PDF download.')}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    >
                       +{estimate.comparable_cases.length - 5} more comparable cases in full report
-                    </p>
+                    </button>
                   )}
                 </div>
               </div>

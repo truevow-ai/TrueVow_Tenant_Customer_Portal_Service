@@ -79,7 +79,7 @@ export function useTenant(): TenantContext {
   }
 
   // Authenticated - get tenant_id from publicMetadata
-  const tenantId = (user?.publicMetadata?.tenantId as string) || null;
+  const tenantId = (user?.publicMetadata?.tenantId as string) || process.env.NEXT_PUBLIC_DEV_TENANT_ID || null;
   const userEmail = user?.primaryEmailAddress?.emailAddress || null;
   const userName = user?.fullName || null;
 

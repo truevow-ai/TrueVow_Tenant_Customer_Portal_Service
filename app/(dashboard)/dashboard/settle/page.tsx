@@ -7,8 +7,8 @@ import { Scale, FileText, Users, ChevronRight, Plus } from 'lucide-react';
 //  Mock retained cases (will be replaced by real INTAKE API call) 
 const MOCK_RETAINED_CASES = [
   { id: 'case-001', client_name: 'Zoey Baker',     incident: 'Slip and Fall',    county: 'Duval County, FL',      opened: '2026-02-10' },
-  { id: 'case-002', client_name: 'Marcus Webb',    incident: 'Auto Accident',    county: 'Hillsborough County, FL', opened: '2026-01-28' },
-  { id: 'case-003', client_name: 'Diana Reyes',    incident: 'Dog Bite',         county: 'Miami-Dade County, FL',  opened: '2026-01-15' },
+  { id: 'case-002', client_name: 'Marcus Webb',    incident: 'Motor Vehicle Accident',    county: 'Hillsborough County, FL', opened: '2026-01-28' },
+  { id: 'case-003', client_name: 'Diana Reyes',    incident: 'Motor Vehicle Accident',         county: 'Miami-Dade County, FL',  opened: '2026-01-15' },
   { id: 'case-004', client_name: 'Ronald Hatch',   incident: 'Premises Liability', county: 'Orange County, FL',   opened: '2026-01-05' },
 ];
 
