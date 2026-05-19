@@ -74,6 +74,16 @@ export interface EstimateResponse {
 
   // Phase 2.1: Demand Confidence Score
   confidence_score: ConfidenceScoreData | null;
+
+  // Phase 3.1: Multiplier Model Layer
+  multiplier_method: MultiplierMethod | null;
+  active_method: string;  // "percentile" (primary) or "multiplier"
+
+  // Phase 3.2: Overdemand Cliff Warning
+  overdemand_cliff: OverdemandCliff | null;
+
+  // Phase 4: Outcome Distribution
+  outcome_distribution: OutcomeDistribution | null;
 }
 
 export interface ComparableCase {
@@ -108,6 +118,44 @@ export interface ConfidenceScoreData {
   label: string;
   factors: Record<string, ConfidenceFactor>;
   warnings: string[];
+}
+
+// Phase 3.1: Multiplier Model Layer
+export interface MultiplierMethod {
+  low: number;
+  median: number;
+  high: number;
+  model_label: string;      // "Community Comp Set (64 cases)" | "Statewide Benchmark (30 cases)" | "Industry Baseline — Not Personalized"
+  base_multiplier: number;  // e.g., 3.5
+  adjustments_applied: string[];  // e.g., ["Government defendant: -15%"]
+}
+
+// Phase 3.2: Overdemand Cliff Warning
+export interface OverdemandCliff {
+  threshold: number | null;       // e.g., 180000
+  settlement_rate_below: number | null;  // e.g., 0.72
+  settlement_rate_above: number | null;  // e.g., 0.31
+  warning: string | null;         // e.g., "Historical data shows demands above $180,000 settle 41% less often"
+  has_cliff: boolean;
+  methodology: string;
+}
+
+// Phase 4: Outcome Distribution
+export interface OutcomeDistribution {
+  outcome_distribution: {
+    settlement: { rate: number; avg_amount: number | null; count: number };
+    plaintiff_verdict: { rate: number; avg_amount: number | null; count: number };
+    defense_verdict: { rate: number; avg_amount: number | null; count: number };
+    dismissed: { rate: number; avg_amount: number | null; count: number };
+  };
+  trial_risk_indicators: {
+    trial_propensity: number;        // e.g., 0.18
+    plaintiff_verdict_rate: number;  // e.g., 0.65
+    defense_verdict_rate: number;    // e.g., 0.35
+    verdict_premium: number | null;  // e.g., 45.0 (verdicts are 45% higher than settlements)
+  } | null;
+  sample_size: number;
+  methodology: string;
 }
 
 // Phase 2.3: Carrier Patterns types

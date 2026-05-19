@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronUp, BarChart3, AlertTriangle } from 'lucide-react';
+import { ChevronDown, ChevronUp, BarChart3, AlertTriangle, TrendingUp, Scale, Gavel } from 'lucide-react';
 import { settleClient, type EstimateRequest, type EstimateResponse } from '@/lib/api/settle-client';
 
 const JURISDICTIONS = [
@@ -559,6 +559,98 @@ export default function SettleQueryPage() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Phase 3.1: Multiplier Model Layer */}
+              {estimate.multiplier_method && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <BarChart3 className="h-4 w-4 text-blue-500" />
+                      <h4 className="text-sm font-semibold text-gray-700">Percentile (Primary)</h4>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between"><span className="text-gray-500">P25</span><span className="font-semibold">{formatCurrency(estimate.percentile_25)}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-500">Median</span><span className="font-bold text-lg">{formatCurrency(estimate.median)}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-500">P75</span><span className="font-semibold">{formatCurrency(estimate.percentile_75)}</span></div>
+                    </div>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="h-4 w-4 text-purple-500" />
+                      <h4 className="text-sm font-semibold text-gray-700">Multiplier (Secondary)</h4>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between"><span className="text-gray-500">Low</span><span className="font-semibold">{formatCurrency(estimate.multiplier_method.low)}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-500">Median</span><span className="font-bold text-lg">{formatCurrency(estimate.multiplier_method.median)}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-500">High</span><span className="font-semibold">{formatCurrency(estimate.multiplier_method.high)}</span></div>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">{estimate.multiplier_method.model_label}</p>
+                    <p className="text-xs text-gray-400">Base: {estimate.multiplier_method.base_multiplier}x</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Phase 3.2: Overdemand Cliff Warning */}
+              {estimate.overdemand_cliff && estimate.overdemand_cliff.has_cliff && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-amber-800">Historical Settlement Pattern Alert</p>
+                      {estimate.overdemand_cliff.warning && (
+                        <p className="text-xs text-amber-700 mt-1">{estimate.overdemand_cliff.warning}</p>
+                      )}
+                      <p className="text-xs text-amber-600 mt-1">{estimate.overdemand_cliff.methodology}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Phase 4: Outcome Distribution */}
+              {estimate.outcome_distribution && estimate.outcome_distribution.sample_size > 0 && (
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <h4 className="text-sm font-semibold text-gray-700">Historical Outcome Distribution</h4>
+                    <p className="text-xs text-gray-500">{estimate.outcome_distribution.sample_size} similar cases</p>
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Outcome</th>
+                        <th className="text-center px-3 py-2 text-xs font-semibold text-gray-500">Rate</th>
+                        <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Avg</th>
+                        <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Count</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {Object.entries(estimate.outcome_distribution.outcome_distribution).map(([key, data]) => {
+                        const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                        return (
+                          <tr key={key}>
+                            <td className="px-3 py-2 font-medium text-gray-700">{label}</td>
+                            <td className="px-3 py-2 text-center">{(data.rate * 100).toFixed(0)}%</td>
+                            <td className="px-3 py-2 text-right">{data.avg_amount ? formatCurrency(data.avg_amount) : '—'}</td>
+                            <td className="px-3 py-2 text-right text-gray-500">{data.count}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {estimate.outcome_distribution.trial_risk_indicators && (
+                    <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-xs">
+                      <span className="font-semibold">Trial Risk:</span>{' '}
+                      {(estimate.outcome_distribution.trial_risk_indicators.trial_propensity * 100).toFixed(0)}% propensity ·{' '}
+                      {(estimate.outcome_distribution.trial_risk_indicators.plaintiff_verdict_rate * 100).toFixed(0)}% plaintiff win rate
+                      {estimate.outcome_distribution.trial_risk_indicators.verdict_premium !== null && (
+                        <> · +{estimate.outcome_distribution.trial_risk_indicators.verdict_premium.toFixed(0)}% verdict premium</>
+                      )}
+                    </div>
+                  )}
+                  <div className="px-4 py-1 border-t border-gray-100">
+                    <p className="text-xs text-gray-400">{estimate.outcome_distribution.methodology}</p>
+                  </div>
                 </div>
               )}
 

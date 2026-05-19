@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
-import { ChevronDown, ChevronUp, AlertCircle, Info, Plus, Lock, Loader2, CreditCard, CheckCircle, BarChart3, AlertTriangle } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertCircle, Info, Plus, Lock, Loader2, CreditCard, CheckCircle, BarChart3, AlertTriangle, TrendingUp, Scale, Gavel } from 'lucide-react';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { useTenant } from '@/hooks/useTenant';
 import { useCompanyToast } from '@/hooks/useCompanyToast';
@@ -784,6 +784,173 @@ function CaseAnalysisInner() {
                       +{estimate.comparable_cases.length - 5} more comparable cases in full report
                     </button>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Phase 3.1: Multiplier Model Layer — Dual-Method Comparison */}
+            {estimate.multiplier_method && (
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-widest mb-3">Settlement Estimate Comparison</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Percentile Method (Primary) */}
+                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <BarChart3 className="h-4 w-4 text-blue-500" />
+                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Percentile Method</h3>
+                      <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium">Primary</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-500">P25</span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{fmt(estimate.percentile_25)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-500">Median</span>
+                        <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{fmt(estimate.median)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-500">P75</span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{fmt(estimate.percentile_75)}</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-3">Based on {estimate.n_cases} cases</p>
+                  </div>
+
+                  {/* Multiplier Method (Secondary) */}
+                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <TrendingUp className="h-4 w-4 text-purple-500" />
+                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Multiplier Method</h3>
+                      <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium">Secondary</span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-500">Low</span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{fmt(estimate.multiplier_method.low)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-500">Median</span>
+                        <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{fmt(estimate.multiplier_method.median)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-500">High</span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{fmt(estimate.multiplier_method.high)}</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">{estimate.multiplier_method.model_label}</p>
+                    <p className="text-xs text-gray-400">Base multiplier: {estimate.multiplier_method.base_multiplier}x</p>
+                    {estimate.multiplier_method.adjustments_applied.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                        <p className="text-xs text-gray-500 mb-1">Adjustments:</p>
+                        <ul className="text-xs text-gray-400 space-y-0.5">
+                          {estimate.multiplier_method.adjustments_applied.map((adj, i) => (
+                            <li key={i}>• {adj}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Phase 3.2: Overdemand Cliff Warning */}
+            {estimate.overdemand_cliff && estimate.overdemand_cliff.has_cliff && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Historical Settlement Pattern Alert</p>
+                    {estimate.overdemand_cliff.warning && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">{estimate.overdemand_cliff.warning}</p>
+                    )}
+                    {estimate.overdemand_cliff.settlement_rate_below !== null && estimate.overdemand_cliff.settlement_rate_above !== null && (
+                      <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                        Settlement rate drops from {(estimate.overdemand_cliff.settlement_rate_below * 100).toFixed(0)}% to {(estimate.overdemand_cliff.settlement_rate_above * 100).toFixed(0)}% above threshold
+                      </p>
+                    )}
+                    <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">{estimate.overdemand_cliff.methodology}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Phase 4: Outcome Distribution */}
+            {estimate.outcome_distribution && estimate.outcome_distribution.sample_size > 0 && (
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-widest mb-3">Historical Outcome Distribution</p>
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700">
+                    <p className="text-xs text-gray-500">Based on {estimate.outcome_distribution.sample_size} similar cases. Descriptive statistics only.</p>
+                  </div>
+
+                  {/* Outcome table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                          <th className="text-left px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Outcome</th>
+                          <th className="text-center px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Rate</th>
+                          <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Avg Amount</th>
+                          <th className="text-right px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Count</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {Object.entries(estimate.outcome_distribution.outcome_distribution).map(([key, data]) => {
+                          const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                          const color = key === 'settlement' ? 'text-green-600' : key === 'plaintiff_verdict' ? 'text-blue-600' : key === 'defense_verdict' ? 'text-red-600' : 'text-gray-500';
+                          return (
+                            <tr key={key} className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                              <td className={`px-4 py-2 font-medium ${color}`}>{label}</td>
+                              <td className="px-4 py-2 text-center">{(data.rate * 100).toFixed(0)}%</td>
+                              <td className="px-4 py-2 text-right">
+                                {data.avg_amount ? fmt(data.avg_amount) : '—'}
+                              </td>
+                              <td className="px-4 py-2 text-right text-gray-500">{data.count} cases</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Trial Risk Indicators */}
+                  {estimate.outcome_distribution.trial_risk_indicators && (
+                    <div className="px-5 py-3 bg-gray-50 dark:bg-gray-700 border-t border-gray-100 dark:border-gray-600">
+                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Trial Risk Indicators</p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                        <div className="flex items-center gap-2">
+                          <Gavel className="h-3.5 w-3.5 text-gray-400" />
+                          <span className="text-gray-500">Trial propensity:</span>
+                          <span className="font-semibold text-gray-900 dark:text-gray-100">
+                            {(estimate.outcome_distribution.trial_risk_indicators.trial_propensity * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Scale className="h-3.5 w-3.5 text-gray-400" />
+                          <span className="text-gray-500">Plaintiff win rate:</span>
+                          <span className="font-semibold text-gray-900 dark:text-gray-100">
+                            {(estimate.outcome_distribution.trial_risk_indicators.plaintiff_verdict_rate * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                        {estimate.outcome_distribution.trial_risk_indicators.verdict_premium !== null && (
+                          <div className="flex items-center gap-2">
+                            <TrendingUp className="h-3.5 w-3.5 text-gray-400" />
+                            <span className="text-gray-500">Verdict premium:</span>
+                            <span className="font-semibold text-green-600">
+                              +{estimate.outcome_distribution.trial_risk_indicators.verdict_premium.toFixed(0)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Methodology disclaimer */}
+                  <div className="px-5 py-2 border-t border-gray-100 dark:border-gray-700">
+                    <p className="text-xs text-gray-400">{estimate.outcome_distribution.methodology}</p>
+                  </div>
                 </div>
               </div>
             )}
