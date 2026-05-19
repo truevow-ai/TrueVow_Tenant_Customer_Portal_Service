@@ -380,6 +380,65 @@ GET /api/v1/tenants/{tenantId}/notifications
 
 ---
 
+### **Phase 3 — Advanced Estimate Models** ✅
+
+#### **Phase 3.1 — Multiplier Model Layer UI** ✅
+
+**Files Updated:**
+- ✅ `lib/api/settle-client.ts` — Added `MultiplierMethod` type
+- ✅ `lib/api/settle-client.ts` — Updated `EstimateResponse` with `multiplier_method` and `active_method` fields
+- ✅ `app/(dashboard)/dashboard/settle/analysis/page.tsx` — Added dual-method comparison section
+- ✅ `app/(dashboard)/dashboard/settle/query/page.tsx` — Added dual-method comparison section
+
+**Features:**
+- ✅ Side-by-side comparison: Percentile Method (Primary) vs Multiplier Method (Secondary)
+- ✅ Shows Low/Median/High for both methods
+- ✅ Displays model label (e.g., "Community Comp Set (64 cases)")
+- ✅ Shows base multiplier value (e.g., 3.5x)
+- ✅ Lists adjustments applied (e.g., "Government defendant: -15%")
+- ✅ Only shown when `multiplier_method` is not null
+
+#### **Phase 3.2 — Overdemand Cliff Warning UI** ✅
+
+**Files Updated:**
+- ✅ `lib/api/settle-client.ts` — Added `OverdemandCliff` type
+- ✅ `lib/api/settle-client.ts` — Updated `EstimateResponse` with `overdemand_cliff` field
+- ✅ `app/(dashboard)/dashboard/settle/analysis/page.tsx` — Added amber warning banner
+- ✅ `app/(dashboard)/dashboard/settle/query/page.tsx` — Added amber warning banner
+
+**Features:**
+- ✅ Amber alert banner when `has_cliff === true`
+- ✅ Shows warning message (e.g., "Demands above $180,000 settle 41% less often")
+- ✅ Displays settlement rate drop percentage
+- ✅ Includes methodology disclaimer
+- ✅ Uses existing amber alert pattern (`bg-amber-50 border-amber-200`)
+
+---
+
+### **Phase 4 — Outcome Distribution UI** ✅
+
+**Files Updated:**
+- ✅ `lib/api/settle-client.ts` — Added `OutcomeDistribution` type
+- ✅ `lib/api/settle-client.ts` — Updated `EstimateResponse` with `outcome_distribution` field
+- ✅ `app/(dashboard)/dashboard/settle/analysis/page.tsx` — Added outcome distribution table
+- ✅ `app/(dashboard)/dashboard/settle/query/page.tsx` — Added outcome distribution table
+
+**Features:**
+- ✅ Historical outcome breakdown table:
+  - Settlement (rate, avg amount, count)
+  - Plaintiff Verdict (rate, avg amount, count)
+  - Defense Verdict (rate, avg amount, count)
+  - Dismissed (rate, avg amount, count)
+- ✅ Trial Risk Indicators section:
+  - Trial propensity percentage
+  - Plaintiff win rate at trial
+  - Verdict premium (verdicts vs settlements)
+- ✅ Methodology disclaimer at bottom
+- ✅ Color-coded outcome rows (green for settlement, blue for plaintiff, red for defense)
+- ✅ Only shown when `outcome_distribution` is not null and `sample_size > 0`
+
+---
+
 ## 🚀 Next Steps
 
 ### **For Backend Team:**
