@@ -220,6 +220,40 @@ SaaS Admin (Internal)          Customer Portal (External)
 
 ---
 
+## 🔄 **Phase 2 Updates (May 2026)**
+
+### **Phase 2.1 — Confidence Score UI**
+- Added `ConfidenceScoreData` and `ConfidenceFactor` types to `lib/api/settle-client.ts`
+- Updated `EstimateResponse` with `confidence_score` field
+- Confidence score displays on analysis and query pages with:
+  - Overall score badge (green/amber/red)
+  - Factor breakdown with progress bars
+  - Warnings section for data quality issues
+
+### **Phase 2.2 — Advanced Filter Controls**
+- Added 9 new optional fields to `EstimateRequest`:
+  - `outcome_type`, `date_range_from`, `date_range_to`
+  - `medical_bills_min`, `medical_bills_max`
+  - `exclude_outliers`, `min_reputation_score`
+  - `comparative_negligence_min`, `comparative_negligence_max`
+- Collapsible advanced filters section on query page
+- Clear button to reset all advanced filters
+
+### **Phase 2.3 — Carrier Patterns Analytics**
+- New page at `/dashboard/settle/carrier-patterns`
+- API proxy route `/api/settle/carrier-patterns`
+- `CarrierPattern` and `CarrierPatternsResponse` types
+- `getCarrierPatterns()` method in `settleClient`
+- Sidebar navigation link added
+
+### **Infrastructure Updates**
+- `opencode.json` configured with 3-mode agent workflow (architect, coder, qa)
+- Agent definitions in `.opencode/agents/`
+- Agent rules in `.opencode/rules/agent-rules.md`
+- Phase 2 skill documentation in `.opencode/skills/`
+
+---
+
 **Decision Made By:** AI Agent + User Collaboration  
 **Approved By:** User  
 **Status:** ✅ Implemented  

@@ -297,6 +297,89 @@ GET /api/v1/tenants/{tenantId}/notifications
 
 ---
 
+## 🔄 Phase 2 Features (May 2026)
+
+### **Phase 2.1 — Confidence Score UI** ✅
+
+**Files Updated:**
+- ✅ `lib/api/settle-client.ts` — Added `ConfidenceScoreData`, `ConfidenceFactor` types
+- ✅ `lib/api/settle-client.ts` — Updated `EstimateResponse` with `confidence_score` field
+- ✅ `app/(dashboard)/dashboard/settle/analysis/page.tsx` — Added confidence score display
+- ✅ `app/(dashboard)/dashboard/settle/query/page.tsx` — Added confidence score display
+
+**Features:**
+- ✅ Overall confidence score badge (green/amber/red based on score)
+- ✅ Factor breakdown with progress bars:
+  - Comp Set Depth
+  - Reputation Distribution
+  - Jurisdiction Coverage
+  - Injury Type Specificity
+  - Data Recency
+  - Outlier Rate
+  - Completeness
+- ✅ Warnings section for data quality issues
+- ✅ Displays on both analysis and query pages
+
+---
+
+### **Phase 2.2 — Advanced Filter Controls** ✅
+
+**Files Updated:**
+- ✅ `lib/api/settle-client.ts` — Added 9 new optional fields to `EstimateRequest`
+- ✅ `app/(dashboard)/dashboard/settle/query/page.tsx` — Added collapsible advanced filters
+
+**New Filter Fields:**
+- ✅ `outcome_type` — Dropdown (Settlement, Jury Verdict, Arbitration, Mediation, Judge's Decision)
+- ✅ `date_range_from` / `date_range_to` — Date inputs
+- ✅ `medical_bills_min` / `medical_bills_max` — Number inputs
+- ✅ `exclude_outliers` — Checkbox (default: true)
+- ✅ `min_reputation_score` — Range slider 0-1
+- ✅ `comparative_negligence_min` / `comparative_negligence_max` — Number inputs 0-100
+
+**Features:**
+- ✅ Collapsible "Advanced Filters" section
+- ✅ Clear button to reset all filters
+- ✅ Filters pass through to backend API
+
+---
+
+### **Phase 2.3 — Carrier Patterns Analytics** ✅
+
+**Files Created:**
+- ✅ `app/(dashboard)/dashboard/settle/carrier-patterns/page.tsx` — Carrier Patterns analytics page
+- ✅ `app/api/settle/carrier-patterns/route.ts` — API proxy route
+
+**Files Updated:**
+- ✅ `lib/api/settle-client.ts` — Added `CarrierPattern`, `CarrierPatternsResponse` types
+- ✅ `lib/api/settle-client.ts` — Added `getCarrierPatterns()` method
+- ✅ `app/(dashboard)/layout.tsx` — Added Carrier Patterns sidebar link
+
+**Features:**
+- ✅ Filters: Jurisdiction, Case Type, Injury Category
+- ✅ Table with columns: Category, Cases, Median, Settle Rate, Below Median, Trial Rate, P25, P75
+- ✅ Loading, error, and empty states
+- ✅ Methodology disclaimer
+- ✅ Currency and percentage formatting
+- ✅ Apply Filters and Clear buttons
+
+---
+
+### **Infrastructure Updates** ✅
+
+**Files Created:**
+- ✅ `opencode.json` — Three-mode agent configuration (architect, coder, qa)
+- ✅ `.opencode/agents/architect.md` — Architect agent definition
+- ✅ `.opencode/agents/coder.md` — Coder agent definition
+- ✅ `.opencode/agents/qa.md` — QA agent definition
+- ✅ `.opencode/rules/agent-rules.md` — Agent rules
+- ✅ `.opencode/skills/phase-2-confidence-score/SKILL.md`
+- ✅ `.opencode/skills/phase-2-advanced-filters/SKILL.md`
+- ✅ `.opencode/skills/phase-2-carrier-patterns/SKILL.md`
+- ✅ `tests/e2e/phase-2-features.spec.ts` — Phase 2 E2E tests (22 test cases)
+- ✅ `PHASE_2_IMPLEMENTATION_REPORT.md` — Implementation and QA report
+
+---
+
 ## 🚀 Next Steps
 
 ### **For Backend Team:**
