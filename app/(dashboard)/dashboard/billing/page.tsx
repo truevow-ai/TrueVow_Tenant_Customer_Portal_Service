@@ -6,7 +6,7 @@ import { useUser } from '@clerk/nextjs';
 import {
   CreditCard, AlertCircle, Users, ShieldCheck, Building2, Activity,
   ArrowRight, TrendingUp, BarChart3, Star, Zap, DollarSign, Percent, Check,
-  ArrowUpRight, ArrowDownRight, XCircle, Loader2,
+  ArrowUpRight, ArrowDownRight, XCircle, Loader2, Package, RefreshCw,
 } from 'lucide-react';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { useTenantDev } from '@/hooks/useTenant';
@@ -102,6 +102,8 @@ export default function BillingPage() {
   const [adminData, setAdminData] = useState<AdminDashboard | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminError, setAdminError] = useState<string | null>(null);
+  const [saasAddons, setSaasAddons] = useState<Array<{ key: string; label: string; description: string; enabled: boolean }>>([]);
+  const [togglingKey, setTogglingKey] = useState<string | null>(null);
 
   // Lazy-load admin stats only when admin tab is opened
   useEffect(() => {
@@ -133,6 +135,36 @@ export default function BillingPage() {
       .then(data => setUsageData(data))
       .catch(() => setUsageData(null));
   }, [tenantId]);
+
+  // Fetch SaaS Admin add-ons status
+  useEffect(() => {
+    if (!tenantId) return
+    fetch(`/api/billing/addons?tenantId=${encodeURIComponent(tenantId)}`)
+      .then(r => r.json())
+      .then(data => setSaasAddons(data.addons || []))
+      .catch(() => {})
+  }, [tenantId])
+
+  const handleToggleAddon = async (addonKey: string, currentEnabled: boolean) => {
+    setTogglingKey(addonKey)
+    try {
+      const res = await fetch('/api/billing/addons', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, addonKey, enabled: !currentEnabled }),
+      })
+      if (!res.ok) throw new Error('Toggle failed')
+      setSaasAddons(prev => prev.map(a => a.key === addonKey ? { ...a, enabled: !currentEnabled } : a))
+    } catch {
+      // Revert on error — refetch
+      fetch(`/api/billing/addons?tenantId=${encodeURIComponent(tenantId || '')}`)
+        .then(r => r.json())
+        .then(data => setSaasAddons(data.addons || []))
+        .catch(() => {})
+    } finally {
+      setTogglingKey(null)
+    }
+  }
 
   // ─── Derive subscription data from feature-access ─────────────────────────
   const tier               = features?.tier;
@@ -469,6 +501,55 @@ export default function BillingPage() {
               </div>
             </div>
           )}
+
+          {/* ── SaaS Admin Add-ons (outbound_agent, auto_unlock) ────────────── */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary-600" />
+              Platform Add-ons
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Toggle TrueVow platform features for your firm. Changes take effect immediately.
+            </p>
+            {saasAddons.length === 0 ? (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading add-ons...
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {saasAddons.map((addon) => (
+                  <div
+                    key={addon.key}
+                    className="bg-card border border-border rounded-lg p-5"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-card-foreground">{addon.label}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">{addon.description}</p>
+                      </div>
+                      <button
+                        onClick={() => handleToggleAddon(addon.key, addon.enabled)}
+                        disabled={togglingKey === addon.key}
+                        className={`relative ml-3 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+                          addon.enabled ? 'bg-green-600' : 'bg-gray-300'
+                        }`}
+                      >
+                        {togglingKey === addon.key ? (
+                          <RefreshCw className="h-3 w-3 animate-spin text-white mx-auto" />
+                        ) : (
+                          <span
+                            className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                              addon.enabled ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* ── Billing Dashboard Cards ───────────────────────────────────── */}
           <div className="mb-8">
