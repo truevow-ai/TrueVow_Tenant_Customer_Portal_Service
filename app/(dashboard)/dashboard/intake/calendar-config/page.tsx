@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Users, Clock, Settings, Save, Loader2 } from 'lucide-react'
+import { ArrowLeft, Users, Clock, Settings, Save, Loader2, Unlock } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTenantDev } from '@/hooks/useTenant'
 
@@ -32,6 +32,8 @@ export default function CalendarConfigPage() {
 
   const [routingMode, setRoutingMode] = useState('hybrid')
   const [maxCasesPerDay, setMaxCasesPerDay] = useState(8)
+  const [autoUnlock, setAutoUnlock] = useState(false)
+  const [togglingUnlock, setTogglingUnlock] = useState(false)
   const [practiceAreaAssignments] = useState<Record<string, string[]>>({})
   const [timeSlotPreferences] = useState<Record<string, { morning: boolean; afternoon: boolean; evening: boolean }>>({})
 
@@ -48,6 +50,12 @@ export default function CalendarConfigPage() {
           setRoutingMode(body.routingConfig.routing_mode || 'hybrid')
           setMaxCasesPerDay(body.routingConfig.max_cases_per_day || 8)
         }
+        // Fetch auto-unlock status
+        const unlockRes = await fetch(`/api/calendar/auto-unlock?tenantId=${encodeURIComponent(tenantId)}`)
+        if (unlockRes.ok) {
+          const unlockBody = await unlockRes.json()
+          setAutoUnlock(unlockBody.enabled)
+        }
       } catch (err: any) {
         toast.error(err.message || 'Failed to load calendar config')
       } finally {
@@ -56,6 +64,25 @@ export default function CalendarConfigPage() {
     }
     loadConfig()
   }, [tenantId, tenantLoading])
+
+  const handleToggleAutoUnlock = async () => {
+    setTogglingUnlock(true)
+    const newValue = !autoUnlock
+    try {
+      const res = await fetch('/api/calendar/auto-unlock', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, enabled: newValue }),
+      })
+      if (!res.ok) throw new Error('Toggle failed')
+      setAutoUnlock(newValue)
+      toast.success(newValue ? 'Auto-Unlock enabled — A+ leads will be unlocked automatically' : 'Auto-Unlock disabled — unlocks must be done manually')
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to toggle auto-unlock')
+    } finally {
+      setTogglingUnlock(false)
+    }
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -152,6 +179,41 @@ export default function CalendarConfigPage() {
             className="mt-1 block w-24 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
           />
         </div>
+      </div>
+
+      {/* Auto-Unlock Toggle */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Unlock className={`h-6 w-6 ${autoUnlock ? 'text-green-600' : 'text-gray-400'}`} />
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Auto-Unlock A+ Leads</h2>
+              <p className="text-sm text-gray-600">
+                {autoUnlock
+                  ? 'A+ qualified leads are automatically unlocked and their appointments pushed to attorney calendars.'
+                  : 'When disabled, unlocking A+ leads must be done manually from the calendar view.'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleToggleAutoUnlock}
+            disabled={togglingUnlock}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
+              autoUnlock ? 'bg-green-600' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                autoUnlock ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+        {autoUnlock && (
+          <p className="mt-3 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg p-3">
+            Auto-unlock will immediately push consultations to the attorney&apos;s connected Google or Outlook calendar when a lead qualifies as A+ (score ≥ 75). No manual intervention needed.
+          </p>
+        )}
       </div>
 
       {/* Attorneys */}

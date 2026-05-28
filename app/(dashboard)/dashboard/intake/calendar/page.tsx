@@ -50,6 +50,52 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
+  const [autoUnlockEnabled, setAutoUnlockEnabled] = useState(false);
+
+  // Check if auto-unlock is enabled for this tenant
+  useEffect(() => {
+    const checkAutoUnlock = async () => {
+      if (!tenantId) return
+      try {
+        const res = await fetch(`/api/calendar/auto-unlock?tenantId=${encodeURIComponent(tenantId)}`)
+        if (res.ok) {
+          const body = await res.json()
+          setAutoUnlockEnabled(body.enabled)
+        }
+      } catch { /* silently ignore */ }
+    }
+    checkAutoUnlock()
+  }, [tenantId])
+
+  // Auto-unlock A+ leads when auto-unlock is enabled
+  useEffect(() => {
+    if (!autoUnlockEnabled || consultations.length === 0) return
+    const autoUnlockPending = async () => {
+      for (const slot of consultations) {
+        const completion = isUnlockAvailable(
+          slot.answers || [],
+          (slot.practice_area_code || 'personal_injury') as any,
+        ).completion
+        if (completion >= 75 && !slot.unlocked_at) {
+          try {
+            await fetch(`/api/intake/leads/${slot.lead_id}/unlock`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tenant_id: tenantId }),
+            })
+            setConsultations((prev) =>
+              prev.map((c) =>
+                c.lead_id === slot.lead_id
+                  ? { ...c, unlocked_at: new Date().toISOString() }
+                  : c,
+              ),
+            )
+          } catch { /* continue with next */ }
+        }
+      }
+    }
+    autoUnlockPending()
+  }, [autoUnlockEnabled, consultations.length, tenantId])
 
   const handleUnlock = async (leadId: string) => {
     setUnlockingId(leadId)
