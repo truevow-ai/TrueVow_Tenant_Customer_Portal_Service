@@ -16,6 +16,7 @@ import {
 import { useTenantDev } from '@/hooks/useTenant';
 import { isUnlockAvailable } from '@/lib/utils/case-scoring';
 import { maskProspectId } from '@/components/intake/TokenizedSummaryCard';
+import { toast } from 'sonner';
 
 interface Consultation {
   lead_id: string;
@@ -48,6 +49,33 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
+  const [unlockingId, setUnlockingId] = useState<string | null>(null);
+
+  const handleUnlock = async (leadId: string) => {
+    setUnlockingId(leadId)
+    try {
+      const res = await fetch(`/api/intake/leads/${leadId}/unlock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tenantId }),
+      })
+      if (!res.ok) throw new Error('Unlock failed')
+      const data = await res.json()
+      toast.success('Lead unlocked — appointment pushed to attorney calendar')
+
+      setConsultations((prev) =>
+        prev.map((c) =>
+          c.lead_id === leadId
+            ? { ...c, unlocked_at: new Date().toISOString(), first_name: data.first_name, last_name: data.last_name }
+            : c,
+        ),
+      )
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to unlock lead')
+    } finally {
+      setUnlockingId(null)
+    }
+  };
 
   useEffect(() => {
     const fetchConsultations = async () => {
@@ -238,20 +266,38 @@ export default function CalendarPage() {
                       isToday(date) ? 'bg-primary-50/30 dark:bg-primary-900/10' : ''
                     }`}
                   >
-                    {hourSlots.map((slot) => (
-                      <Link
-                        key={slot.lead_id}
-                        href={`/dashboard/intake/lead/${slot.lead_id}`}
-                        className="block p-2 mb-1 bg-green-100 dark:bg-green-900/30 rounded text-xs hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
-                      >
-                        <p className="font-medium text-green-800 dark:text-green-300 truncate">
-                          {getDisplayName(slot)}
-                        </p>
-                        <p className="text-green-600 dark:text-green-400">
-                          {formatTime(slot.booking_date)}
-                        </p>
-                      </Link>
-                    ))}
+                    {hourSlots.map((slot) => {
+                      const completion = isUnlockAvailable(
+                        slot.answers || [],
+                        (slot.practice_area_code || 'personal_injury') as any,
+                      ).completion
+                      const isLocked = completion >= 75 && !slot.unlocked_at
+
+                      return (
+                        <div key={slot.lead_id} className="mb-1">
+                          <Link
+                            href={`/dashboard/intake/lead/${slot.lead_id}`}
+                            className="block p-2 bg-green-100 dark:bg-green-900/30 rounded text-xs hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                          >
+                            <p className="font-medium text-green-800 dark:text-green-300 truncate">
+                              {getDisplayName(slot)}
+                            </p>
+                            <p className="text-green-600 dark:text-green-400">
+                              {formatTime(slot.booking_date)}
+                            </p>
+                          </Link>
+                          {isLocked && (
+                            <button
+                              onClick={(e) => { e.preventDefault(); handleUnlock(slot.lead_id) }}
+                              disabled={unlockingId === slot.lead_id}
+                              className="mt-1 w-full text-xs bg-amber-100 text-amber-800 px-1 py-0.5 rounded hover:bg-amber-200 disabled:opacity-50"
+                            >
+                              {unlockingId === slot.lead_id ? 'Unlocking...' : 'Unlock A+ Lead'}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 );
               })}
@@ -300,20 +346,38 @@ export default function CalendarPage() {
                 }`}>
                   {date.getDate()}
                 </p>
-                {slots.slice(0, 3).map((slot) => (
-                  <Link
-                    key={slot.lead_id}
-                    href={`/dashboard/intake/lead/${slot.lead_id}`}
-                    className="block p-1.5 mb-1 bg-green-100 dark:bg-green-900/30 rounded text-xs hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
-                  >
-                    <p className="font-medium text-green-800 dark:text-green-300 truncate">
-                      {getDisplayName(slot)}
-                    </p>
-                    <p className="text-green-600 dark:text-green-400">
-                      {formatTime(slot.booking_date)}
-                    </p>
-                  </Link>
-                ))}
+                {slots.slice(0, 3).map((slot) => {
+                  const completion = isUnlockAvailable(
+                    slot.answers || [],
+                    (slot.practice_area_code || 'personal_injury') as any,
+                  ).completion
+                  const isLocked = completion >= 75 && !slot.unlocked_at
+
+                  return (
+                    <div key={slot.lead_id} className="mb-1">
+                      <Link
+                        href={`/dashboard/intake/lead/${slot.lead_id}`}
+                        className="block p-1.5 bg-green-100 dark:bg-green-900/30 rounded text-xs hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                      >
+                        <p className="font-medium text-green-800 dark:text-green-300 truncate">
+                          {getDisplayName(slot)}
+                        </p>
+                        <p className="text-green-600 dark:text-green-400">
+                          {formatTime(slot.booking_date)}
+                        </p>
+                      </Link>
+                      {isLocked && (
+                        <button
+                          onClick={(e) => { e.preventDefault(); handleUnlock(slot.lead_id) }}
+                          disabled={unlockingId === slot.lead_id}
+                          className="mt-0.5 w-full text-[10px] bg-amber-100 text-amber-800 px-1 py-0.5 rounded hover:bg-amber-200 disabled:opacity-50"
+                        >
+                          {unlockingId === slot.lead_id ? '...' : 'Unlock'}
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
                 {slots.length > 3 && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 pl-1">
                     +{slots.length - 3} more

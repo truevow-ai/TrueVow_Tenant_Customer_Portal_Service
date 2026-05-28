@@ -1,98 +1,98 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, Calendar, Users, Clock, Settings, Plus, Trash2, Save } from 'lucide-react';
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { ArrowLeft, Users, Clock, Settings, Save, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { useTenantDev } from '@/hooks/useTenant'
+
+interface Attorney {
+  attorney_id: string
+  first_name: string
+  last_name: string
+  email: string
+  calendar_feed_url: string | null
+  calendar_provider: string | null
+  is_lead_attorney: boolean
+}
+
+interface RoutingConfig {
+  tenant_id: string
+  routing_mode: string
+  max_cases_per_day: number
+}
 
 export default function CalendarConfigPage() {
-  const [attorneys, setAttorneys] = useState<any[]>([]);
-  const [practiceAreas] = useState([
-    'Personal Injury',
-    'Family Law',
-    'Immigration',
-    'Criminal Defense',
-    'Employment Law',
-    'Bankruptcy',
-    'Real Estate',
-    'Estate Planning',
-    'Workers\' Compensation',
-    'Business Law'
-  ]);
+  const { tenantId, isLoading: tenantLoading } = useTenantDev()
 
-  const [bookingRules, setBookingRules] = useState({
-    defaultRoutingMethod: 'practice-area', // 'practice-area', 'round-robin', 'last-in-first-out'
-    practiceAreaAssignments: {} as Record<string, string[]>, // practiceArea -> attorneyIds[]
-    timeSlotPreferences: {} as Record<string, { morning: boolean; afternoon: boolean; evening: boolean }>, // attorneyId -> slots
-  });
+  const [attorneys, setAttorneys] = useState<Attorney[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [routingConfig, setRoutingConfig] = useState<RoutingConfig | null>(null)
 
-  const [saving, setSaving] = useState(false);
+  const [routingMode, setRoutingMode] = useState('hybrid')
+  const [maxCasesPerDay, setMaxCasesPerDay] = useState(8)
+  const [practiceAreaAssignments] = useState<Record<string, string[]>>({})
+  const [timeSlotPreferences] = useState<Record<string, { morning: boolean; afternoon: boolean; evening: boolean }>>({})
 
   useEffect(() => {
-    // Mock attorneys - Replace with actual API call
-    setAttorneys([
-      { id: 'atty-1', name: 'John Smith', email: 'john@lawfirm.com', calendar: 'Google Calendar' },
-      { id: 'atty-2', name: 'Sarah Johnson', email: 'sarah@lawfirm.com', calendar: 'Clio' },
-      { id: 'atty-3', name: 'Michael Brown', email: 'michael@lawfirm.com', calendar: 'Not Connected' },
-    ]);
-
-    // Mock existing rules
-    setBookingRules({
-      defaultRoutingMethod: 'practice-area',
-      practiceAreaAssignments: {
-        'Personal Injury': ['atty-1', 'atty-2'],
-        'Family Law': ['atty-2'],
-        'Criminal Defense': ['atty-1'],
-      },
-      timeSlotPreferences: {
-        'atty-1': { morning: true, afternoon: true, evening: false },
-        'atty-2': { morning: true, afternoon: false, evening: true },
-        'atty-3': { morning: false, afternoon: true, evening: false },
-      },
-    });
-  }, []);
-
-  const handleRoutingMethodChange = (method: string) => {
-    setBookingRules({ ...bookingRules, defaultRoutingMethod: method });
-  };
-
-  const handlePracticeAreaAssignment = (practiceArea: string, attorneyId: string, checked: boolean) => {
-    const current = bookingRules.practiceAreaAssignments[practiceArea] || [];
-    const updated = checked 
-      ? [...current, attorneyId]
-      : current.filter(id => id !== attorneyId);
-    
-    setBookingRules({
-      ...bookingRules,
-      practiceAreaAssignments: {
-        ...bookingRules.practiceAreaAssignments,
-        [practiceArea]: updated
+    const loadConfig = async () => {
+      if (tenantLoading || !tenantId) return
+      try {
+        const res = await fetch(`/api/calendar/config?tenantId=${encodeURIComponent(tenantId)}`)
+        if (!res.ok) throw new Error('Failed to load')
+        const body = await res.json()
+        setAttorneys(body.attorneys || [])
+        if (body.routingConfig) {
+          setRoutingConfig(body.routingConfig)
+          setRoutingMode(body.routingConfig.routing_mode || 'hybrid')
+          setMaxCasesPerDay(body.routingConfig.max_cases_per_day || 8)
+        }
+      } catch (err: any) {
+        toast.error(err.message || 'Failed to load calendar config')
+      } finally {
+        setLoading(false)
       }
-    });
-  };
-
-  const handleTimeSlotChange = (attorneyId: string, slot: 'morning' | 'afternoon' | 'evening', checked: boolean) => {
-    const current = bookingRules.timeSlotPreferences[attorneyId] || { morning: false, afternoon: false, evening: false };
-    setBookingRules({
-      ...bookingRules,
-      timeSlotPreferences: {
-        ...bookingRules.timeSlotPreferences,
-        [attorneyId]: { ...current, [slot]: checked }
-      }
-    });
-  };
+    }
+    loadConfig()
+  }, [tenantId, tenantLoading])
 
   const handleSave = async () => {
-    setSaving(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('Saving booking rules:', bookingRules);
-    setSaving(false);
-    alert('Calendar configuration saved successfully!');
-  };
+    setSaving(true)
+    try {
+      const res = await fetch('/api/calendar/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          routingMode,
+          practiceAreaAssignments,
+          timeSlotPreferences,
+          maxCasesPerDay,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Save failed')
+      }
+      toast.success('Calendar configuration saved')
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (tenantLoading || loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
+      </div>
+    )
+  }
 
   return (
     <div>
-      {/* Header */}
       <div className="mb-8">
         <Link href="/dashboard/intake" className="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700 mb-4">
           <ArrowLeft size={20} />
@@ -104,7 +104,7 @@ export default function CalendarConfigPage() {
         </p>
       </div>
 
-      {/* Routing Method Selection */}
+      {/* Routing Method */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
           <Settings className="h-6 w-6 text-primary-600" />
@@ -113,95 +113,84 @@ export default function CalendarConfigPage() {
         <p className="text-sm text-gray-600 mb-4">
           Choose how Benjamin assigns consultations when multiple attorneys are available
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <label className={`relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-            bookingRules.defaultRoutingMethod === 'practice-area' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
-          }`}>
-            <input
-              type="radio"
-              name="routing"
-              value="practice-area"
-              checked={bookingRules.defaultRoutingMethod === 'practice-area'}
-              onChange={(e) => handleRoutingMethodChange(e.target.value)}
-              className="text-primary-600"
-            />
-            <div>
-              <p className="font-semibold text-gray-900">Practice Area</p>
-              <p className="text-xs text-gray-600">Route by attorney specialization</p>
-            </div>
-          </label>
-          <label className={`relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-            bookingRules.defaultRoutingMethod === 'round-robin' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
-          }`}>
-            <input
-              type="radio"
-              name="routing"
-              value="round-robin"
-              checked={bookingRules.defaultRoutingMethod === 'round-robin'}
-              onChange={(e) => handleRoutingMethodChange(e.target.value)}
-              className="text-primary-600"
-            />
-            <div>
-              <p className="font-semibold text-gray-900">Round Robin</p>
-              <p className="text-xs text-gray-600">Distribute evenly across attorneys</p>
-            </div>
-          </label>
-          <label className={`relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-            bookingRules.defaultRoutingMethod === 'last-in-first-out' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
-          }`}>
-            <input
-              type="radio"
-              name="routing"
-              value="last-in-first-out"
-              checked={bookingRules.defaultRoutingMethod === 'last-in-first-out'}
-              onChange={(e) => handleRoutingMethodChange(e.target.value)}
-              className="text-primary-600"
-            />
-            <div>
-              <p className="font-semibold text-gray-900">Last In First Out</p>
-              <p className="text-xs text-gray-600">Most recent gets next booking</p>
-            </div>
-          </label>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { value: 'round_robin', label: 'Round Robin', desc: 'Distribute evenly across attorneys' },
+            { value: 'calendar', label: 'Calendar', desc: 'Check attorney availability' },
+            { value: 'specialization', label: 'Specialization', desc: 'Route by attorney specialization' },
+            { value: 'hybrid', label: 'Hybrid', desc: 'Specialization first, then round-robin' },
+          ].map((option) => (
+            <label
+              key={option.value}
+              className={`relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                routingMode === option.value ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <input
+                type="radio"
+                name="routing"
+                value={option.value}
+                checked={routingMode === option.value}
+                onChange={(e) => setRoutingMode(e.target.value)}
+                className="text-primary-600"
+              />
+              <div>
+                <p className="font-semibold text-gray-900">{option.label}</p>
+                <p className="text-xs text-gray-600">{option.desc}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+        <div className="mt-4">
+          <label className="text-sm font-medium text-gray-700">Max cases per attorney per day</label>
+          <input
+            type="number"
+            min={1}
+            max={20}
+            value={maxCasesPerDay}
+            onChange={(e) => setMaxCasesPerDay(Number(e.target.value))}
+            className="mt-1 block w-24 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+          />
         </div>
       </div>
 
-      {/* Practice Area Assignments */}
+      {/* Attorneys */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
           <Users className="h-6 w-6 text-blue-600" />
-          <h2 className="text-xl font-semibold text-gray-900">Practice Area Assignments</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Attorneys</h2>
         </div>
-        <p className="text-sm text-gray-600 mb-4">
-          Assign attorneys to practice areas. Multiple attorneys can handle the same practice area.
-        </p>
         {attorneys.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
             <Users className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-600 mb-2">No attorneys found</p>
-            <Link href="/dashboard/team/invite" className="text-primary-600 hover:underline text-sm">
-              + Invite Team Member
-            </Link>
+            <p className="text-gray-600 mb-2">No attorneys configured</p>
+            <p className="text-sm text-gray-400">
+              Attorneys are configured during the onboarding process. Contact your TrueVow CSM to add attorneys.
+            </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {practiceAreas.map((practiceArea) => (
-              <div key={practiceArea} className="border border-gray-200 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-3">{practiceArea}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {attorneys.map((attorney) => (
-                    <label key={attorney.id} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={(bookingRules.practiceAreaAssignments[practiceArea] || []).includes(attorney.id)}
-                        onChange={(e) => handlePracticeAreaAssignment(practiceArea, attorney.id, e.target.checked)}
-                        className="rounded text-primary-600"
-                      />
-                      <span className="text-sm text-gray-700">{attorney.name}</span>
-                      {attorney.calendar === 'Not Connected' && (
-                        <span className="text-xs text-red-600">(No Calendar)</span>
-                      )}
-                    </label>
-                  ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {attorneys.map((attorney) => (
+              <div key={attorney.attorney_id} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-semibold text-gray-900">
+                    {attorney.first_name} {attorney.last_name}
+                  </p>
+                  {attorney.is_lead_attorney && (
+                    <span className="text-xs bg-primary-100 text-primary-800 px-2 py-0.5 rounded">Lead</span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-500">{attorney.email}</p>
+                <div className="mt-2">
+                  {attorney.calendar_provider ? (
+                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded capitalize">
+                      {attorney.calendar_provider.replace('_', ' ')} connected
+                    </span>
+                  ) : (
+                    <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                      No calendar connected
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
@@ -209,59 +198,32 @@ export default function CalendarConfigPage() {
         )}
       </div>
 
-      {/* Time Slot Preferences */}
+      {/* Time Slots */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
           <Clock className="h-6 w-6 text-green-600" />
           <h2 className="text-xl font-semibold text-gray-900">Time Slot Preferences</h2>
         </div>
         <p className="text-sm text-gray-600 mb-4">
-          Set preferred consultation times for each attorney (Morning: 8am-12pm, Afternoon: 12pm-5pm, Evening: 5pm-8pm)
+          Set preferred consultation times for each attorney. Benjamin will only book consultations during available time slots.
         </p>
-        <div className="space-y-4">
-          {attorneys.map((attorney) => (
-            <div key={attorney.id} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-900">{attorney.name}</h3>
-                {attorney.calendar === 'Not Connected' && (
-                  <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Calendar Not Connected</span>
-                )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          {['morning', 'afternoon', 'evening'].map((slot) => {
+            const labels: Record<string, string> = { morning: 'Morning (8am-12pm)', afternoon: 'Afternoon (12pm-5pm)', evening: 'Evening (5pm-8pm)' }
+            return (
+              <div key={slot} className="border border-gray-200 rounded-lg p-3">
+                <p className="font-medium text-gray-700 mb-2">{labels[slot]}</p>
+                <p className="text-xs text-gray-500">
+                  Configured per attorney via their calendar availability. Benjamin checks connected calendars
+                  automatically before booking.
+                </p>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={bookingRules.timeSlotPreferences[attorney.id]?.morning || false}
-                    onChange={(e) => handleTimeSlotChange(attorney.id, 'morning', e.target.checked)}
-                    className="rounded text-primary-600"
-                  />
-                  <span className="text-sm text-gray-700">Morning (8am-12pm)</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={bookingRules.timeSlotPreferences[attorney.id]?.afternoon || false}
-                    onChange={(e) => handleTimeSlotChange(attorney.id, 'afternoon', e.target.checked)}
-                    className="rounded text-primary-600"
-                  />
-                  <span className="text-sm text-gray-700">Afternoon (12pm-5pm)</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={bookingRules.timeSlotPreferences[attorney.id]?.evening || false}
-                    onChange={(e) => handleTimeSlotChange(attorney.id, 'evening', e.target.checked)}
-                    className="rounded text-primary-600"
-                  />
-                  <span className="text-sm text-gray-700">Evening (5pm-8pm)</span>
-                </label>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
-      {/* Save Button */}
+      {/* Save */}
       <div className="flex justify-end gap-4">
         <Link
           href="/dashboard/intake"
@@ -274,19 +236,17 @@ export default function CalendarConfigPage() {
           disabled={saving}
           className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
         >
-          <Save size={20} />
+          {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save size={20} />}
           {saving ? 'Saving...' : 'Save Configuration'}
         </button>
       </div>
 
-      {/* Help Text */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-800">
-          <strong>Note:</strong> Attorneys must have their calendars connected in the{' '}
-          <Link href="/dashboard/team" className="underline font-semibold">Team Management</Link> page before they can receive bookings.
-          Benjamin will only book consultations with attorneys who have available time slots in their connected calendars.
+          <strong>Note:</strong> Benjamin will only book consultations with attorneys who have available time slots in their
+          connected calendars. Calendar availability is checked in real-time when the routing mode is set to "Calendar".
         </p>
       </div>
     </div>
-  );
+  )
 }

@@ -32,9 +32,9 @@
 
 **All Services Now Protected:**
 - ✅ **INTAKE** - Requires subscription to access
-- ✅ **DRAFT** - Requires subscription to access
+- ✅ **LEVERAGE** - Requires subscription to access
 - ✅ **SETTLE** - Requires subscription to access
-- ✅ **CONNECT** - Requires subscription to access (NEW)
+- 
 
 **Protection Mechanisms:**
 1. ✅ **Navigation Level** - Services hidden from sidebar if not subscribed
@@ -71,9 +71,9 @@
 | Service | Navigation | Page Access | Upgrade Flow |
 |---------|-----------|-------------|--------------|
 | **INTAKE** | ✅ Conditional | ✅ Protected | ✅ Redirect |
-| **DRAFT** | ✅ Conditional | ✅ Protected | ✅ Redirect |
+| **LEVERAGE** | ✅ Conditional | ✅ Protected | ✅ Redirect |
 | **SETTLE** | ✅ Conditional | ✅ Protected | ✅ Redirect |
-| **CONNECT** | ✅ Conditional | ✅ Protected | ✅ Upgrade UI |
+
 
 ---
 
@@ -131,14 +131,7 @@ Only subscribed services appear in sidebar
 
 ## ✅ Features Implemented
 
-### **CONNECT Service:**
-- ✅ Referral network dashboard
-- ✅ Send referrals to other attorneys
-- ✅ View referral status (pending, accepted, declined, completed)
-- ✅ Track partner payouts
-- ✅ Statistics cards (total, accepted, pending, payouts)
-- ✅ Create referral form with validation
-- ✅ Upgrade prompt when not subscribed
+
 
 ### **Subscription System:**
 - ✅ Service access checking
@@ -175,10 +168,9 @@ Response:
   tenantId: string;
   services: {
     intake: boolean;
-    draft: boolean;
+    leverage: boolean;
     settle: boolean;
-    connect: boolean;
-  };
+    };
   plan: 'free' | 'basic' | 'professional' | 'enterprise';
   expiresAt?: string;
 }
@@ -200,11 +192,6 @@ PLATFORM_SERVICE_API_KEY=your_api_key_here
 3. ⏳ Handle Stripe webhook events
 4. ⏳ Update subscriptions on upgrade/downgrade
 
-### **For CONNECT Backend Team:**
-1. ⏳ Implement CONNECT service API
-2. ⏳ Create referral database schema
-3. ⏳ Implement payout tracking
-4. ⏳ Add referral acceptance/decline logic
 
 ### **For Customer Portal Team:**
 1. ⏳ Add subscription status caching
@@ -218,15 +205,8 @@ PLATFORM_SERVICE_API_KEY=your_api_key_here
 
 **✅ All Services Protected:**
 - ✅ INTAKE - Subscription required
-- ✅ DRAFT - Subscription required
+- ✅ LEVERAGE - Subscription required
 - ✅ SETTLE - Subscription required
-- ✅ CONNECT - Subscription required (NEW)
-
-**✅ CONNECT Service Complete:**
-- ✅ Full UI implementation
-- ✅ API client ready
-- ✅ All pages created
-- ✅ Subscription protection active
 
 **✅ Architecture:**
 - ✅ Consistent pattern across all services
