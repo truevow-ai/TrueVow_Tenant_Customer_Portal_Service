@@ -8,7 +8,12 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/forgot-password(.*)',
-  '/api/(.*)', // API routes are public (they handle their own auth if needed)
+]);
+
+// API routes that are intentionally public
+const isPublicApi = createRouteMatcher([
+  '/api/public/(.*)',
+  '/api/webhook/(.*)',
 ]);
 
 export default clerkMiddleware((auth, req) => {
@@ -29,9 +34,19 @@ export default clerkMiddleware((auth, req) => {
     return response;
   }
 
-  // Require authentication for all other routes
+  // Allow public API routes (webhooks, public endpoints)
+  if (isPublicApi(req)) {
+    const response = NextResponse.next();
+    response.headers.set('x-pathname', req.nextUrl.pathname);
+    return response;
+  }
+
+  // Require authentication for all other routes (including API)
   if (!userId) {
-    // Redirect to sign-in if not authenticated
+    // API routes return 401 JSON, page routes redirect to sign-in
+    if (req.nextUrl.pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
     const signInUrl = new URL('/sign-in', req.url);
     signInUrl.searchParams.set('redirect_url', req.url);
     return NextResponse.redirect(signInUrl);

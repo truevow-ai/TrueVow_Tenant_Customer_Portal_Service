@@ -1,19 +1,17 @@
 /**
  * API Route: GET /api/intake/leads
  *
+ * NOW PROTECTED: Requires Clerk authentication + RBAC lead:read permission.
  * Primary:  SaaS Admin HTTP endpoint
  *           GET /api/v1/customer-portal/tenants/[tenant_id]/intake/leads
  *
  * Fallback: Direct Supabase query to SaaS Admin DB (tenant_intake_leads_session)
- *           Used when SaaS Admin HTTP service is unreachable (e.g. not started).
- *           This is a Supabase REST call — NOT a call to any backend service.
- *
- * Both paths return the same normalized field shape for the frontend.
- * The Customer Portal NEVER calls the Tenant App HTTP service.
+ *           Used when SaaS Admin HTTP service is unreachable.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { withPermission, withTenantScope, Permission } from '@/lib/auth/guard';
 
 const SAAS_ADMIN_URL =
   process.env.SAAS_ADMINISTRATION_SERVICE_URL || 'http://localhost:3001';
@@ -32,9 +30,6 @@ function getSaasAdminClient() {
   return createClient(SAAS_ADMIN_SUPABASE_URL, SAAS_ADMIN_SUPABASE_KEY);
 }
 
-/**
- * Map final_state from tenant_intake_leads_session → portal status value.
- */
 function mapFinalStateToStatus(finalState: string | null, tags: string[]): string {
   if (tags.includes('did_not_proceed') || finalState === 'did_not_proceed') return 'did_not_proceed';
   if (tags.includes('retained')        || finalState === 'retained')        return 'retained';
@@ -43,9 +38,6 @@ function mapFinalStateToStatus(finalState: string | null, tags: string[]): strin
   return 'new';
 }
 
-/**
- * Normalize a row from tenant_intake_leads_session to the shape the frontend expects.
- */
 function normalizeSession(row: any) {
   const tags: string[] = Array.isArray(row.tags) ? row.tags : [];
   const responses: any[] = Array.isArray(row.responses) ? row.responses : [];
@@ -71,7 +63,7 @@ function normalizeSession(row: any) {
     recording_url:      null,
     transcription_url:  null,
     transcription:      null,
-    unlocked_at:        row.start_time          ?? null,   // SaaS Admin data — treat as already unlocked
+    unlocked_at:        row.start_time          ?? null,
     unlocked_by:        null,
     booking_date:       row.booking_date        ?? null,
     recommendation:     null,
@@ -84,9 +76,6 @@ function normalizeSession(row: any) {
   };
 }
 
-/**
- * Normalize a SaaS Admin HTTP response lead (contact_name etc.) to frontend shape.
- */
 function normalizeSaasAdminLead(lead: any) {
   const nameParts = (lead.contact_name || '').trim().split(/\s+/);
   return {
@@ -100,7 +89,6 @@ function normalizeSaasAdminLead(lead: any) {
   };
 }
 
-/** Try the SaaS Admin HTTP endpoint. Returns null on any failure. */
 async function tryAdminHttp(
   tenantId: string,
   searchParams: URLSearchParams
@@ -123,7 +111,6 @@ async function tryAdminHttp(
   }
 }
 
-/** Query SaaS Admin Supabase DB directly (tenant_intake_leads_session). */
 async function queryAdminDb(
   tenantId: string,
   searchParams: URLSearchParams
@@ -141,7 +128,6 @@ async function queryAdminDb(
       .order('start_time', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    // Status filter — map portal status back to final_state
     const statusFilter = searchParams.get('status');
     if (statusFilter) {
       const finalStateMap: Record<string, string> = {
@@ -172,16 +158,15 @@ async function queryAdminDb(
   }
 }
 
-export async function GET(request: NextRequest) {
+async function handler(req: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
+    const searchParams = req.nextUrl.searchParams;
     const tenantId = searchParams.get('tenant_id');
 
     if (!tenantId) {
       return NextResponse.json({ error: 'tenant_id is required' }, { status: 400 });
     }
 
-    // ── 1. Try SaaS Admin HTTP endpoint ─────────────────────────────────────
     const adminRes = await tryAdminHttp(tenantId, searchParams);
     if (adminRes) {
       const data = await adminRes.json();
@@ -191,7 +176,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ── 2. Fallback: SaaS Admin Supabase DB direct ───────────────────────────
     const dbResult = await queryAdminDb(tenantId, searchParams);
     if (dbResult && dbResult.leads.length > 0) {
       return NextResponse.json({
@@ -202,7 +186,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ── 3. Nothing found anywhere ─────────────────────────────────────────────
     return NextResponse.json({
       leads:  [],
       total:  0,
@@ -218,3 +201,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withPermission(Permission.LEAD_READ, handler);

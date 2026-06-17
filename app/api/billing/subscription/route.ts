@@ -2,21 +2,21 @@
  * Billing Subscription Management Proxy Route
  *
  * Server-side proxy for subscription tier changes and cancellations.
- * Eliminates CORS failures — the billing service only receives server-to-server
- * requests; the API key never reaches the browser.
+ * NOW PROTECTED: Requires Clerk authentication + RBAC billing permission.
  *
  * PUT  /api/billing/subscription  → Change tier (upgrade/downgrade)
  * DELETE /api/billing/subscription → Cancel subscription
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { withPermission, withTenantScope, Permission } from '@/lib/auth/guard';
 
 const BILLING_BASE = process.env.TENANT_BILLING_SERVICE_URL || 'http://localhost:3016';
-const API_KEY      = process.env.TENANT_BILLING_SERVICE_API_KEY || '';
+const API_KEY = process.env.TENANT_BILLING_SERVICE_API_KEY || '';
 
-export async function PUT(request: NextRequest) {
+async function handlePUT(req: NextRequest, ctx: { tenantId: string | null }) {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { tenantId, tier } = body;
 
     if (!tenantId) {
@@ -30,23 +30,18 @@ export async function PUT(request: NextRequest) {
 
     const res = await fetch(url, {
       method: 'PUT',
-      headers: {
-        'X-API-Key': API_KEY,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'X-API-Key': API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ tier }),
       signal: AbortSignal.timeout(15000),
     });
 
     const data = await res.json().catch(() => ({}));
-
     if (!res.ok) {
       return NextResponse.json(
         { error: data.error || data.detail || `Billing service returned ${res.status}` },
         { status: res.status }
       );
     }
-
     return NextResponse.json(data);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -55,9 +50,9 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+async function handleDELETE(req: NextRequest, ctx: { tenantId: string | null }) {
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { tenantId } = body;
 
     if (!tenantId) {
@@ -68,22 +63,17 @@ export async function DELETE(request: NextRequest) {
 
     const res = await fetch(url, {
       method: 'DELETE',
-      headers: {
-        'X-API-Key': API_KEY,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'X-API-Key': API_KEY, 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(15000),
     });
 
     const data = await res.json().catch(() => ({}));
-
     if (!res.ok) {
       return NextResponse.json(
         { error: data.error || data.detail || `Billing service returned ${res.status}` },
         { status: res.status }
       );
     }
-
     return NextResponse.json(data);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -91,3 +81,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ _fallback: true, message: 'Billing service offline — cancellation queued' }, { status: 202 });
   }
 }
+
+export const PUT = withPermission(Permission.BILLING_SELF_SERVICE_CHANGE, handlePUT);
+export const DELETE = withPermission(Permission.BILLING_SELF_SERVICE_CHANGE, handleDELETE);
