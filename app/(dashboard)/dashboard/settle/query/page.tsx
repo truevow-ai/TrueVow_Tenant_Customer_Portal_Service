@@ -39,6 +39,7 @@ const LIABILITY_LEVELS = ['Weak', 'Moderate', 'Strong', 'Clear'];
 const DEFENDANT_TYPES = ['Individual', 'Small Business', 'Corporation', 'Government', 'Insurance Company'];
 const OUTCOME_TYPES = ['Settlement', 'Jury Verdict', 'Arbitration Award', 'Mediation', "Judge's Decision"];
 const COURT_LEVELS = ['circuit', 'federal_district', 'municipal', 'appellate', 'supreme'];
+const INJURY_SEVERITY_LEVELS = ['soft_tissue', 'fracture', 'surgical', 'catastrophic', 'fatal'];
 
 export default function SettleQueryPage() {
   const router = useRouter();
@@ -136,6 +137,10 @@ export default function SettleQueryPage() {
     setMinReputationScore(0);
     setComparativeNegligenceMin('');
     setComparativeNegligenceMax('');
+    setInsuranceCarrier('');
+    setInjurySeverity('');
+    setCourtLevel('');
+    setIsVerdict(undefined);
   };
 
   const formatCurrency = (amount: number) => {
@@ -415,6 +420,60 @@ export default function SettleQueryPage() {
                       className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                     />
                     <label htmlFor="excludeOutliers" className="text-sm text-gray-700">Exclude Outliers</label>
+                  </div>
+
+                  {/* Cohort W — Comparable Case Filters */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Insurance Carrier</label>
+                    <input
+                      type="text"
+                      value={insuranceCarrier}
+                      onChange={(e) => setInsuranceCarrier(e.target.value)}
+                      placeholder="e.g., State Farm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Injury Severity</label>
+                      <select
+                        value={injurySeverity}
+                        onChange={(e) => setInjurySeverity(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      >
+                        <option value="">Any</option>
+                        {INJURY_SEVERITY_LEVELS.map(s => (
+                          <option key={s} value={s}>{s.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Court Level</label>
+                      <select
+                        value={courtLevel}
+                        onChange={(e) => setCourtLevel(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      >
+                        <option value="">Any</option>
+                        {COURT_LEVELS.map(c => (
+                          <option key={c} value={c}>{c.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Outcome Type Filter</label>
+                    <select
+                      value={isVerdict === undefined ? '' : isVerdict ? 'verdict' : 'settlement'}
+                      onChange={(e) => setIsVerdict(e.target.value === '' ? undefined : e.target.value === 'verdict')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                    >
+                      <option value="">Any</option>
+                      <option value="verdict">Verdict Only</option>
+                      <option value="settlement">Settlement Only</option>
+                    </select>
                   </div>
 
                   {/* Action buttons */}

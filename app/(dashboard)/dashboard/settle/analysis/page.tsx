@@ -12,19 +12,6 @@ import { settleClient, type EstimateResponse } from '@/lib/api/settle-client';
 import { leverageClient, type CaseDetail } from '@/lib/api/leverage-client';
 import { PilotModeBanner } from '@/components/settle/PilotModeBanner';
 
-//  Mock case data  will come from INTAKE API 
-const MOCK_CASES: Record<string, {
-  id: string; client_name: string; incident: string; county: string;
-  injury_severity: string; medical_specials: number;
-  liability_strength: string; policy_limit_band: string;
-  insurer: string; litigation_stage: string;
-}> = {
-  'case-001': { id: 'case-001', client_name: 'Zoey Baker',   incident: 'Slip and Fall',      county: 'Duval County, FL',        injury_severity: 'fracture',    medical_specials: 8200,  liability_strength: 'Property owner awareness established', policy_limit_band: 'Unknown', insurer: 'Unknown',       litigation_stage: 'Pre-suit'  },
-  'case-002': { id: 'case-002', client_name: 'Marcus Webb',  incident: 'Motor Vehicle Accident',       county: 'Hillsborough County, FL', injury_severity: 'spinal_injury', medical_specials: 32000, liability_strength: 'Clear liability, rear-end',            policy_limit_band: '$100k',  insurer: 'State Farm',   litigation_stage: 'Pre-suit'  },
-  'case-003': { id: 'case-003', client_name: 'Diana Reyes',  incident: 'Motor Vehicle Accident',            county: 'Miami-Dade County, FL',   injury_severity: 'traumatic_brain_injury',    medical_specials: 4100,  liability_strength: 'Strict liability state',               policy_limit_band: '$25k',   insurer: 'Allstate',     litigation_stage: 'Pre-suit'  },
-  'case-004': { id: 'case-004', client_name: 'Ronald Hatch', incident: 'Premises Liability',  county: 'Orange County, FL',       injury_severity: 'fracture', medical_specials: 14700, liability_strength: 'Contested — no prior notice documented', policy_limit_band: '$50k',   insurer: 'Progressive',  litigation_stage: 'Suit filed' },
-};
-
 // ─── SETTLE Query Button Component ──────────────────────────────────────────
 
 interface SettleQueryButtonProps {
@@ -233,7 +220,7 @@ function CaseAnalysisInner() {
   const caseId = searchParams.get('case_id') || '';
   const source = searchParams.get('source') || '';
   const isLeverageImport = source === 'leverage_damages';
-  const isLeverageCase = source === 'leverage_case';
+  const isLeverageCase = source === 'leverage_case' || (!!caseId && !isLeverageImport);
   const { features, hasFeature } = useFeatureAccess();
   const { tenantId } = useTenant();
   const toast = useCompanyToast();
@@ -282,8 +269,6 @@ function CaseAnalysisInner() {
     liability_pct: Number(searchParams.get('liability_pct') || 100),
   } : null;
 
-  const caseData = (!isLeverageImport && !isLeverageCase) ? (MOCK_CASES[caseId] || null) : null;
-
   // Live settlement intelligence from backend (fetched after billing flow succeeds)
   const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
   const [estimateLoading, setEstimateLoading] = useState(false);
@@ -300,16 +285,7 @@ function CaseAnalysisInner() {
       setEstimateError(null);
       try {
         // Build request from available case data
-        const request = caseData
-          ? {
-              jurisdiction: caseData.county,
-              case_type: caseData.incident,
-              injury_category: [caseData.injury_severity],
-              medical_bills: caseData.medical_specials,
-              severity: caseData.injury_severity,
-              liability_strength: caseData.liability_strength,
-            }
-          : leverageCaseDetail
+        const request = leverageCaseDetail
           ? {
               jurisdiction: leverageCaseDetail.state || '',
               case_type: leverageCaseDetail.incident_type || 'Personal Injury',
@@ -378,8 +354,12 @@ function CaseAnalysisInner() {
     );
   }
 
-  if (!isLeverageImport && !isLeverageCase && !caseData) {
-    return <div className="text-sm text-gray-500 p-8">Case not found.</div>;
+  if (!isLeverageImport && !isLeverageCase) {
+    return (
+      <div className="text-sm text-gray-500 p-8">
+        No case selected. <Link href="/dashboard/leverage/cases" className="text-blue-600 underline">Select a case from LEVERAGE</Link> or <Link href="/dashboard/settle/query" className="text-blue-600 underline">run a manual query</Link>.
+      </div>
+    );
   }
 
   if (isLeverageCase && !leverageCaseDetail) {
@@ -409,11 +389,6 @@ function CaseAnalysisInner() {
             <>
               <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Direct Case Analysis</h1>
               <p className="text-sm text-gray-500 mt-0.5">Imported from LEVERAGE Damages Calculator · {fmt(leverageData.gross_damages)} gross damages</p>
-            </>
-          ) : caseData ? (
-            <>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Case: {caseData.client_name}</h1>
-              <p className="text-sm text-gray-500 mt-0.5">{caseData.incident}  {caseData.county}</p>
             </>
           ) : null}
         </div>
@@ -497,27 +472,6 @@ function CaseAnalysisInner() {
                   ))}
                 </div>
               </>
-            ) : caseData ? (
-              <>
-                <p className="text-xs text-gray-400 mb-4">Auto-populated from intake. Confirm or edit before running analysis.</p>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                  {[
-                    ['Incident Type',       caseData.incident],
-                    ['County',              caseData.county],
-                    ['Injury Severity',     caseData.injury_severity],
-                    ['Medical Specials',    fmt(caseData.medical_specials)],
-                    ['Liability Strength',  caseData.liability_strength],
-                    ['Policy Limit Band',   caseData.policy_limit_band],
-                    ['Insurer',             caseData.insurer],
-                    ['Litigation Stage',    caseData.litigation_stage],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex flex-col">
-                      <span className="text-xs text-gray-400">{label}</span>
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{value}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
             ) : null}
           </div>
         )}
@@ -556,7 +510,7 @@ function CaseAnalysisInner() {
             {estimate.is_pilot_response && (
               <PilotModeBanner
                 nCases={estimate.n_cases}
-                stateLabel={caseData?.county.split(',')[1]?.trim()}
+                stateLabel={leverageCaseDetail?.state}
               />
             )}
 
