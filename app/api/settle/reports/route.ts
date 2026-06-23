@@ -26,6 +26,17 @@ export async function POST(req: NextRequest) {
       headers: { 'Content-Type': 'application/json', 'X-API-Key': SETTLE_KEY },
       body: JSON.stringify(body),
     });
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/pdf')) {
+      const pdfBuffer = await res.arrayBuffer();
+      return new NextResponse(pdfBuffer, {
+        status: res.status,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': res.headers.get('content-disposition') || 'attachment; filename="settle-report.pdf"',
+        },
+      });
+    }
     const data = await res.json().catch(() => ({}));
     return NextResponse.json(data, { status: res.status });
   } catch {

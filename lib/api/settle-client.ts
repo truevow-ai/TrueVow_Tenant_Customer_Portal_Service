@@ -248,8 +248,8 @@ class SettleClient {
     return this.get('/api/settle/reports');
   }
 
-  async generateReport(caseId: string, reportType: string): Promise<Report> {
-    return this.post('/api/settle/reports', { case_id: caseId, report_type: reportType });
+  async generateReport(queryId: string, format: string = 'pdf'): Promise<Report> {
+    return this.post('/api/settle/reports', { query_id: queryId, format });
   }
 
   // Phase 2.3: Carrier Patterns analytics
