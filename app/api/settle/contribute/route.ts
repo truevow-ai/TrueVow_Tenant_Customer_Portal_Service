@@ -6,7 +6,7 @@ const SETTLE_KEY = process.env.SETTLE_SERVICE_API_KEY || '';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const res = await fetch(SETTLE_URL + '/api/v1/contribute', {
+    const res = await fetch(SETTLE_URL + '/api/v1/contribute/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-Key': SETTLE_KEY },
       body: JSON.stringify(body),
