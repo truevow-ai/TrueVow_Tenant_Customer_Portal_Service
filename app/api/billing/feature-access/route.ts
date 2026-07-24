@@ -62,6 +62,8 @@ export async function GET(request: NextRequest) {
         intake:  { enabled: true },
         draft:   { enabled: true },
         settle:  { enabled: true },
+        leverage: { enabled: true },
+        trace:   { enabled: true },
         connect: { enabled: false },
       },
       _fallback: true,

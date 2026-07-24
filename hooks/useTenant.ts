@@ -148,6 +148,19 @@ export function useTenantDev(): TenantContext {
     const userName = user.fullName || null;
 
     if (!tenantId) {
+      // Dev fallback: use DEV_TENANT_ID when Clerk user has no tenant assignment
+      if (devTenantId) {
+        console.warn('[useTenantDev] User has no tenant in Clerk — using DEV_TENANT_ID fallback');
+        return {
+          tenantId: devTenantId,
+          userId: userId || null,
+          userEmail,
+          userName,
+          isLoading: false,
+          isAuthenticated: true,
+          error: null,
+        };
+      }
       return {
         tenantId: null,
         userId: userId || null,

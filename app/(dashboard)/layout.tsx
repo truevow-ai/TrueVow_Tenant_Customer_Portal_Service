@@ -24,7 +24,8 @@ import {
   Monitor,
   Moon,
   Calendar,
-  Zap
+  Zap,
+  Stethoscope
 } from 'lucide-react';
 
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
@@ -74,6 +75,7 @@ function DashboardLayoutContent({
   const isPreviewBypass = typeof window !== 'undefined' && window.location.search.includes('preview=bypass');
   const showDraft = isPreviewBypass || hasFeature('draft');
   const showSettle = isPreviewBypass || hasFeature('settle');
+  const showTrace = isPreviewBypass || hasFeature('trace');
   const showConnect = false; // CONNECT retracted for Phase I launch
 
   return (
@@ -110,12 +112,19 @@ function DashboardLayoutContent({
             Calendar
           </NavLink>
           
-          {/* LEVERAGE - Show only if feature is enabled */}
-          {showDraft && (
+          {/* TRACE - Medical records chronology & demand package */}
+          {showTrace && (
+            <NavLink href="/dashboard/trace" icon={<Stethoscope size={20} />} collapsed={collapsed}>
+              TRACE
+            </NavLink>
+          )}
+          
+          {/* LEVERAGE - Retracted for TRACE (Phase 2) */}
+          {/* {showDraft && (
             <NavLink href="/dashboard/leverage" icon={<Zap size={20} />} collapsed={collapsed}>
               LEVERAGE
             </NavLink>
-          )}
+          )} */}
           
           {/* SETTLE - Show only if feature is enabled */}
           {showSettle && (

@@ -15,7 +15,7 @@ import {
   SettleStatus
 } from '@/lib/billing/client';
 
-export type ServiceName = 'intake' | 'draft' | 'settle';
+export type ServiceName = 'intake' | 'draft' | 'settle' | 'trace';
 
 export interface ServiceAccessResult {
   hasAccess: boolean;
@@ -98,6 +98,11 @@ function resolveServiceAccess(
   // SETTLE - with launch gate
   if (serviceName === 'settle') {
     return resolveSettle(features.settle, founding_intelligence, settle_status);
+  }
+
+  // TRACE
+  if (serviceName === 'trace') {
+    return resolveFeature(features.trace, founding_intelligence);
   }
 
   return {
@@ -193,6 +198,7 @@ export function getServiceDisplayName(serviceName: ServiceName): string {
     intake: 'INTAKE',
     draft: 'DRAFT',
     settle: 'SETTLE',
+    trace: 'TRACE',
   };
   return names[serviceName];
 }
@@ -205,6 +211,7 @@ export function getServiceDescription(serviceName: ServiceName): string {
     intake: 'Lead capture and intake management',
     draft: 'Legal document validation',
     settle: 'Settlement intelligence and contribution',
+    trace: 'Medical records chronology and demand package',
   };
   return descriptions[serviceName];
 }

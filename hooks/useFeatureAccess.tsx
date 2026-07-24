@@ -29,7 +29,7 @@ interface FeatureContextValue {
   tier: Tier;
   
   // Convenience methods
-  hasFeature: (feature: 'intake' | 'leverage' | 'settle' | 'draft') => boolean;
+  hasFeature: (feature: 'intake' | 'leverage' | 'settle' | 'draft' | 'trace') => boolean;
   isPhaseOne: boolean; // Phase I = INTAKE only
 }
 
@@ -64,8 +64,6 @@ export function FeatureProvider({ children }: { children: ReactNode }) {
         setError(null);
       } catch (err) {
         console.error('Failed to fetch feature access:', err);
-        // Don't set error - allow UI to render with defaults
-        // setError('Failed to load feature access');
       } finally {
         setIsLoading(false);
       }
@@ -74,7 +72,7 @@ export function FeatureProvider({ children }: { children: ReactNode }) {
     fetchFeatures();
   }, [tenantId, tenantLoading]);
 
-  const hasFeature = (feature: 'intake' | 'leverage' | 'settle' | 'draft'): boolean => {
+  const hasFeature = (feature: 'intake' | 'leverage' | 'settle' | 'draft' | 'trace'): boolean => {
     if (!features) return false;
     return features.features[feature]?.enabled ?? false;
   };

@@ -16,6 +16,7 @@ const routeLabels: Record<string, string> = {
   'intake': 'Intake & Leads',
   'draft': 'DRAFT Validation',
   'settle': 'SETTLE Data Bank',
+  'trace': 'TRACE Chronology',
   'connect': 'CONNECT Referrals',
   'verify': 'VERIFY Service',
   'team': 'Team Management',
@@ -29,6 +30,9 @@ const routeLabels: Record<string, string> = {
   'query': 'Query Data',
   'reports': 'Reports',
   'invite': 'Invite Member',
+  'cases': 'Cases',
+  'chronology': 'Chronology',
+  'providers': 'Providers',
 };
 
 export function Breadcrumb() {
