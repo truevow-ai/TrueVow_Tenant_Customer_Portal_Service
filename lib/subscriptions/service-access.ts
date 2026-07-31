@@ -3,7 +3,10 @@
  *
  * Customer-facing products (4):
  *   INTAKE   Capture and qualify prospects
- *   TRACE    Sign, activate, and develop matters (packages RETAINER internally)
+ *   TRACE    Client Engagement and Case Readiness
+ *            Moves approved prospects through engagement, signature,
+ *            Matter activation, evidence, treatment tracking, records
+ *            development, and case readiness. Packages RETAINER internally.
  *   SETTLE   Prepare for and evaluate resolution
  *   COMMAND  Portfolio oversight and analytics
  *
@@ -258,7 +261,7 @@ export function getServiceDescription(serviceName: ServiceName): string {
     intake: 'Lead capture and intake management',
     draft: 'Legal document validation',
     settle: 'Settlement intelligence and contribution',
-    trace: 'Treatment, Records, and Case-Readiness Tracking',
+    trace: 'Client Engagement and Case Readiness',
     retainer: 'Engagement management, conflict review, and client activation',
   };
   return descriptions[serviceName];

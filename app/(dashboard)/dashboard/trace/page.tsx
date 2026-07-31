@@ -97,7 +97,7 @@ export default function TracePage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">TRACE</h1>
-        <p className="mt-1 text-sm text-gray-500">Medical records chronology &amp; demand package builder</p>
+        <p className="mt-1 text-sm text-gray-500">Client Engagement and Case Readiness</p>
       </div>
 
       {/* Stats */}
