@@ -20,7 +20,7 @@ const API_KEY = process.env.TENANT_BILLING_SERVICE_API_KEY ||
 // TYPES (Matching Billing Service API)
 // =============================================================================
 
-export type Tier = 'solo' | 'growth' | null;
+export type Tier = 'solo' | 'growth' | 'team' | null;
 
 export interface FeatureAccess {
   enabled: boolean;

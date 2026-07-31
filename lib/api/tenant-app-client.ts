@@ -137,7 +137,7 @@ export interface TenantConfiguration {
   tenant_id: string;
   
   // Firm tier and pricing
-  firm_tier: 'solo' | 'team' | 'enterprise';
+  firm_tier: 'solo' | 'growth' | 'team';
   unlock_price: number; // $99 solo, $89 team, custom enterprise
   
   // Custom threshold (default 75%, configurable 70-85%)
