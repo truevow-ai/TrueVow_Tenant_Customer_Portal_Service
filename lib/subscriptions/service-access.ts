@@ -43,6 +43,19 @@
  *   resets on cancellation.
  *   Public page: two-card model (Per Case $79 / Pro $299).
  *
+ * COMMAND pricing:
+ *   Core             Included    Automatically granted
+ *   Pro              $99/mo/firm Recurring subscription, no usage meter
+ *
+ * Billing architecture:
+ *   Billing Service → authoritative for catalog, prices, entitlements, usage
+ *   Financial Accounting → authoritative for invoices, payments, tax, ledger
+ *   Customer Portal → display layer only, never calculates or authorizes prices
+ *   Product services → emit operational events, never calculate customer prices
+ *
+ * INTAKE is billed per billable call, not per minute.
+ * Call duration is an internal cost/capacity metric (non-billable shadow meter).
+ *
  * DRAFT: Legacy.
  *
  * Server-side access checks from unified Billing Service API endpoint.
