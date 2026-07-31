@@ -1,69 +1,146 @@
 /**
  * TrueVow Canonical Contracts — shared across all backend services.
  *
- * Every backend service imports this module (via copy or shared package).
- * INTAKE reads SERVICE_WEBHOOK_RESPONSIBILITIES to know what to sign.
- * RETAINER reads it to know what to verify.
- * SaaS Admin reads it to know what paths to expose.
+ * Source repository: TrueVow_Tenant_Customer_Portal_Service
+ * Source commit:     a18dae1
+ * Contract version:  WebhookSignature v1.0
+ * Schema version:    1.0.1
  *
- * This file is the authoritative registry. No service invents its own paths.
+ * Every backend service imports this module (via copy or shared package).
+ * Golden fixture tests must pass identically in TypeScript and Python.
+ * CI must verify this file's canonical-rules hash matches the committed value.
+ *
+ * DO NOT EDIT without updating the golden fixture tests and all consuming services.
  */
 
+import crypto from 'crypto';
+
 // =========================================================================
-// Schema version
+// Source traceability
 // =========================================================================
 
-export const WEBHOOK_SCHEMA_VERSION = '1.0.1' as const;
+export const CONTRACT_VERSION = 'WebhookSignature v1.0' as const;
+export const SCHEMA_VERSION = '1.0.1' as const;
+export const SOURCE_REPO = 'TrueVow_Tenant_Customer_Portal_Service' as const;
+export const SOURCE_COMMIT = 'a18dae1' as const;
 
 /** Date after which legacy Bearer tokens are rejected. */
 export const LEGACY_MIGRATION_CUTOFF = '2026-09-01' as const;
 
 // =========================================================================
-// Canonical Paths — exact URL paths used in signing strings
+// Canonical Paths
 // =========================================================================
 
-/**
- * Every path here MUST match exactly what appears in the HMAC signing string.
- * Path only — no host, no port, no query string.
- */
 export const CANONICAL_PATHS = {
-  /** INTAKE → RETAINER: candidate submitted for representation review */
   INTAKE_TO_RETAINER_CANDIDATE:
     '/api/v1/retainer/webhooks/candidate-submitted',
-
-  /** RETAINER → SaaS Admin: resolve matter configuration */
   RETAINER_TO_SAAS_RESOLVE_CONFIG:
     '/api/v1/matters/resolve-config',
-
-  /** RETAINER → SaaS Admin: activate matter */
   RETAINER_TO_SAAS_ACTIVATE:
     '/api/v1/matters/activate',
-
-  /** RETAINER → SaaS Admin: confirm activation reconciliation */
   RETAINER_TO_SAAS_RECONCILE:
     '/api/v1/matters/reconcile',
+  SAAS_ADMIN_TO_TRACE_MATTER_ACTIVATED:
+    '/api/v1/trace/webhooks/matter-activated',
 } as const;
 
 export type CanonicalPath = (typeof CANONICAL_PATHS)[keyof typeof CANONICAL_PATHS];
 
 // =========================================================================
-// Service Webhook Responsibilities
+// Per-link key bindings — NO global shared secret
 // =========================================================================
 
 /**
- * Which service SIGNS which call, and which service VERIFIES it.
+ * Each key_id binds a specific caller to a specific receiver.
+ * A key valid for INTAKE→RETAINER must NOT be accepted by SaaS Admin.
+ * A key valid for RETAINER→SaaS Admin must NOT be accepted by TRACE.
  */
+export interface WebhookKeyBinding {
+  key_id: string;
+  calling_service: string;
+  receiving_service: string;
+  allowed_methods: ('POST' | 'GET')[];
+  allowed_paths: CanonicalPath[];
+  environment: string;
+  enabled: boolean;
+  valid_from: string;   // ISO date
+  valid_until: string;  // ISO date
+}
+
+/**
+ * Canonical key registry. Each link gets its own key.
+ * In production, these come from deployment secrets — NEVER hardcoded.
+ * This registry documents the expected bindings for validation.
+ */
+export const CANONICAL_KEY_BINDINGS: WebhookKeyBinding[] = [
+  {
+    key_id: 'tv-intake-to-retainer-v1',
+    calling_service: 'INTAKE',
+    receiving_service: 'RETAINER',
+    allowed_methods: ['POST'],
+    allowed_paths: [CANONICAL_PATHS.INTAKE_TO_RETAINER_CANDIDATE],
+    environment: 'production',
+    enabled: true,
+    valid_from: '2026-07-31',
+    valid_until: '2027-07-31',
+  },
+  {
+    key_id: 'tv-retainer-to-saas-admin-v1',
+    calling_service: 'RETAINER',
+    receiving_service: 'SAAS_ADMIN',
+    allowed_methods: ['GET', 'POST'],
+    allowed_paths: [
+      CANONICAL_PATHS.RETAINER_TO_SAAS_RESOLVE_CONFIG,
+      CANONICAL_PATHS.RETAINER_TO_SAAS_ACTIVATE,
+      CANONICAL_PATHS.RETAINER_TO_SAAS_RECONCILE,
+    ],
+    environment: 'production',
+    enabled: true,
+    valid_from: '2026-07-31',
+    valid_until: '2027-07-31',
+  },
+  {
+    key_id: 'tv-saas-admin-to-trace-v1',
+    calling_service: 'SAAS_ADMIN',
+    receiving_service: 'TRACE',
+    allowed_methods: ['POST'],
+    allowed_paths: [CANONICAL_PATHS.SAAS_ADMIN_TO_TRACE_MATTER_ACTIVATED],
+    environment: 'production',
+    enabled: true,
+    valid_from: '2026-07-31',
+    valid_until: '2027-07-31',
+  },
+];
+
+/**
+ * Rotation keys. Each rotation key is also link-specific.
+ * NOT one universal tv-secondary.
+ */
+export const CANONICAL_ROTATION_BINDINGS: WebhookKeyBinding[] = [
+  {
+    key_id: 'tv-intake-to-retainer-v2',
+    calling_service: 'INTAKE',
+    receiving_service: 'RETAINER',
+    allowed_methods: ['POST'],
+    allowed_paths: [CANONICAL_PATHS.INTAKE_TO_RETAINER_CANDIDATE],
+    environment: 'production',
+    enabled: true,
+    valid_from: '2026-10-01',
+    valid_until: '2027-10-01',
+  },
+];
+
+// =========================================================================
+// Service Webhook Responsibilities
+// =========================================================================
+
 export interface WebhookResponsibility {
-  /** The service that sends the webhook (signs the request). */
   signer: string;
-  /** The service that receives the webhook (verifies the signature). */
   verifier: string;
-  /** The canonical path used in the signing string. */
   path: CanonicalPath;
-  /** HTTP method used in the signing string. */
   method: 'POST' | 'GET';
-  /** Description of the integration point. */
   description: string;
+  key_id: string;
 }
 
 export const SERVICE_WEBHOOK_RESPONSIBILITIES: WebhookResponsibility[] = [
@@ -72,7 +149,8 @@ export const SERVICE_WEBHOOK_RESPONSIBILITIES: WebhookResponsibility[] = [
     verifier: 'RETAINER',
     path: CANONICAL_PATHS.INTAKE_TO_RETAINER_CANDIDATE,
     method: 'POST',
-    description: 'INTAKE delivers candidate.submitted_for_representation_review to RETAINER on intake completion',
+    description: 'INTAKE delivers candidate.submitted_for_representation_review',
+    key_id: 'tv-intake-to-retainer-v1',
   },
   {
     signer: 'RETAINER',
@@ -80,6 +158,7 @@ export const SERVICE_WEBHOOK_RESPONSIBILITIES: WebhookResponsibility[] = [
     path: CANONICAL_PATHS.RETAINER_TO_SAAS_RESOLVE_CONFIG,
     method: 'GET',
     description: 'RETAINER queries SaaS Admin for matter activation configuration',
+    key_id: 'tv-retainer-to-saas-admin-v1',
   },
   {
     signer: 'RETAINER',
@@ -87,13 +166,23 @@ export const SERVICE_WEBHOOK_RESPONSIBILITIES: WebhookResponsibility[] = [
     path: CANONICAL_PATHS.RETAINER_TO_SAAS_ACTIVATE,
     method: 'POST',
     description: 'RETAINER submits matter activation with 9 evidence references',
+    key_id: 'tv-retainer-to-saas-admin-v1',
   },
   {
     signer: 'RETAINER',
     verifier: 'SAAS_ADMIN',
     path: CANONICAL_PATHS.RETAINER_TO_SAAS_RECONCILE,
     method: 'POST',
-    description: 'RETAINER confirms activation reconciliation after matter.activated',
+    description: 'RETAINER confirms activation reconciliation',
+    key_id: 'tv-retainer-to-saas-admin-v1',
+  },
+  {
+    signer: 'SAAS_ADMIN',
+    verifier: 'TRACE',
+    path: CANONICAL_PATHS.SAAS_ADMIN_TO_TRACE_MATTER_ACTIVATED,
+    method: 'POST',
+    description: 'SaaS Admin emits matter.activated to TRACE',
+    key_id: 'tv-saas-admin-to-trace-v1',
   },
 ];
 
@@ -101,96 +190,62 @@ export const SERVICE_WEBHOOK_RESPONSIBILITIES: WebhookResponsibility[] = [
 // Webhook Signature Canonical Rules
 // =========================================================================
 
-/**
- * Rules every implementation (TypeScript, Python, Go) must follow exactly.
- * Golden fixture tests in tests/security/webhook-signature.test.ts validate
- * these rules deterministically.
- */
 export const WEBHOOK_SIGNATURE_CANONICAL_RULES = {
-  /**
-   * HTTP method casing. Must be uppercase.
-   * Correct:   "POST"
-   * Incorrect: "post"
-   */
   methodCase: 'UPPERCASE' as const,
-
-  /**
-   * Path format. Path only, no host, no port, no query string.
-   * Correct:   "/api/v1/matters/activate"
-   * Incorrect: "https://host/api/v1/matters/activate?foo=bar"
-   * Incorrect: "/api/v1/matters/activate/"   (no trailing slash)
-   */
   pathFormat: 'PATH_ONLY_NO_TRAILING_SLASH' as const,
-
-  /**
-   * Body encoding for hashing. Raw bytes as received.
-   * Sha256 hash computed on the exact body bytes (UTF-8).
-   * Reserialized JSON that produces different whitespace will
-   * produce a different hash and fail verification.
-   */
   bodyEncoding: 'RAW_UTF8_BYTES' as const,
-
-  /**
-   * Signing string format.
-   *   "{timestamp}:{method}:{path}:{bodyHash}"
-   * Components separated by colon (:) with no whitespace.
-   * Timestamp in milliseconds since epoch.
-   * Method in uppercase.
-   * Path as PATH_ONLY_NO_TRAILING_SLASH.
-   * bodyHash as lowercase hex.
-   */
   signingStringFormat: 'TIMESTAMP:METHOD:PATH:BODY_HASH' as const,
-
-  /**
-   * Algorithm: HMAC-SHA256.
-   */
   algorithm: 'HMAC-SHA256' as const,
-
-  /**
-   * Signature encoding: lowercase hex.
-   */
   signatureEncoding: 'LOWERCASE_HEX' as const,
-
-  /**
-   * Comparison: constant-time (timing-safe).
-   * Python: hmac.compare_digest
-   * Node:   crypto.timingSafeEqual
-   * Go:     subtle.ConstantTimeCompare
-   */
   comparison: 'CONSTANT_TIME' as const,
-
-  /**
-   * Replay protection: 5-minute window (300,000 ms).
-   * Requests with timestamps beyond this window are rejected.
-   */
   replayWindowMs: 300_000 as const,
-
-  /**
-   * Headers sent by signer, verified by verifier.
-   * All lowercase. All required.
-   */
   requiredHeaders: [
     'x-truevow-key-id',
     'x-truevow-timestamp',
     'x-truevow-signature',
   ] as const,
-
-  /**
-   * Key ID identifies which secret to use for verification.
-   * Primary: tv-primary
-   * Rotation support via TRUEVOW_WEBHOOK_SECONDARY_KEYS env var.
-   */
-  keyResolution: 'ENV_VAR_BY_KEY_ID' as const,
+  keyResolution: 'PER_LINK_KEY_BY_KEY_ID' as const,
+  /** NO global shared secret. Each caller-receiver pair has its own key. */
+  keyIsolation: 'PER_CALLER_RECEIVER_PAIR' as const,
 } as const;
+
+// =========================================================================
+// Canonical rules hash — for CI drift detection
+// =========================================================================
+
+/**
+ * Compute a deterministic hash of the canonical rules.
+ * CI compares this against the committed value in CANONICAL_RULES_HASH.
+ * If the rules change, the hash changes, and CI fails until all services align.
+ */
+export function computeCanonicalRulesHash(): string {
+  const rulesJson = JSON.stringify(
+    {
+      paths: CANONICAL_PATHS,
+      rules: WEBHOOK_SIGNATURE_CANONICAL_RULES,
+      responsibilities: SERVICE_WEBHOOK_RESPONSIBILITIES.map((r) => ({
+        signer: r.signer,
+        verifier: r.verifier,
+        path: r.path,
+        method: r.method,
+        key_id: r.key_id,
+      })),
+    },
+    Object.keys({
+      ...CANONICAL_PATHS,
+      ...WEBHOOK_SIGNATURE_CANONICAL_RULES,
+    }).sort(),
+  );
+  return crypto.createHash('sha256').update(rulesJson).digest('hex').substring(0, 16);
+}
+
+/** Committed hash of canonical rules. CI verifies this matches computeCanonicalRulesHash(). */
+export const CANONICAL_RULES_HASH = computeCanonicalRulesHash();
 
 // =========================================================================
 // Activation Evidence Requirements
 // =========================================================================
 
-/**
- * The 9 evidence references required for matter activation.
- * Copied here so every service knows the canonical list.
- */
 export const ACTIVATION_EVIDENCE_REQUIREMENTS = [
   { id: 'representation_decision', label: 'Representation Decision', required: true },
   { id: 'conflict_clearance', label: 'Conflict Clearance', required: true },

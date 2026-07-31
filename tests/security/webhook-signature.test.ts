@@ -14,6 +14,7 @@ import { signRequest, verifySignature } from '@/lib/security/webhook-auth';
 import {
   CANONICAL_PATHS,
   WEBHOOK_SIGNATURE_CANONICAL_RULES,
+  SERVICE_WEBHOOK_RESPONSIBILITIES,
 } from '@/lib/contracts/index';
 
 // =========================================================================
@@ -65,7 +66,8 @@ test('FIXTURE-01: golden signature verifies correctly', () => {
     GOLDEN.body,
   );
 
-  expect(result).toBe(true);
+  expect(result.valid).toBe(true);
+  expect(result.caller).toBe('INTAKE');
 });
 
 // =========================================================================
@@ -106,7 +108,7 @@ test('FIXTURE-03: signRequest output verifies with verifySignature', () => {
     GOLDEN.body,
   );
 
-  expect(result).toBe(true);
+  expect(result.valid).toBe(true);
   expect(headers['X-TrueVow-Key-Id']).toBe(GOLDEN.keyId);
   expect(headers['X-TrueVow-Timestamp']).toBeTruthy();
   expect(headers['X-TrueVow-Signature']).toBeTruthy();
@@ -133,7 +135,7 @@ test('FIXTURE-04: expired timestamp (>5 min old) is rejected', () => {
     GOLDEN.body,
   );
 
-  expect(result).toBe(false);
+  expect(result.valid).toBe(false);
 });
 
 // =========================================================================
@@ -157,7 +159,7 @@ test('FIXTURE-05: future timestamp (>5 min ahead) is rejected', () => {
     GOLDEN.body,
   );
 
-  expect(result).toBe(false);
+  expect(result.valid).toBe(false);
 });
 
 // =========================================================================
@@ -185,7 +187,7 @@ test('FIXTURE-06: tampered signature (one byte changed) is rejected', () => {
     GOLDEN.body,
   );
 
-  expect(result).toBe(false);
+  expect(result.valid).toBe(false);
 });
 
 // =========================================================================
@@ -212,7 +214,7 @@ test('FIXTURE-07: signature for wrong path is rejected', () => {
     GOLDEN.body,
   );
 
-  expect(result).toBe(false);
+  expect(result.valid).toBe(false);
 });
 
 // =========================================================================
@@ -239,7 +241,7 @@ test('FIXTURE-08: trailing slash on path changes hash and is rejected', () => {
     GOLDEN.body,
   );
 
-  expect(result).toBe(false);
+  expect(result.valid).toBe(false);
 });
 
 // =========================================================================
@@ -267,7 +269,7 @@ test('FIXTURE-09: reserialized JSON (different whitespace) changes hash', () => 
     bodyPretty,
   );
 
-  expect(result).toBe(false);
+  expect(result.valid).toBe(false);
 });
 
 // =========================================================================
@@ -284,7 +286,7 @@ test('FIXTURE-10: missing key-id header is rejected', () => {
     GOLDEN.path,
     GOLDEN.body,
   );
-  expect(result).toBe(false);
+  expect(result.valid).toBe(false);
 });
 
 test('FIXTURE-11: missing timestamp header is rejected', () => {
@@ -297,7 +299,7 @@ test('FIXTURE-11: missing timestamp header is rejected', () => {
     GOLDEN.path,
     GOLDEN.body,
   );
-  expect(result).toBe(false);
+  expect(result.valid).toBe(false);
 });
 
 test('FIXTURE-12: missing signature header is rejected', () => {
@@ -310,7 +312,7 @@ test('FIXTURE-12: missing signature header is rejected', () => {
     GOLDEN.path,
     GOLDEN.body,
   );
-  expect(result).toBe(false);
+  expect(result.valid).toBe(false);
 });
 
 // =========================================================================
@@ -333,7 +335,7 @@ test('FIXTURE-13: non-numeric timestamp is rejected', () => {
     GOLDEN.body,
   );
 
-  expect(result).toBe(false);
+  expect(result.valid).toBe(false);
 });
 
 // =========================================================================
@@ -357,7 +359,7 @@ test('FIXTURE-14: signature for GET does not verify for POST', () => {
     GOLDEN.body,
   );
 
-  expect(result).toBe(false);
+  expect(result.valid).toBe(false);
 });
 
 // =========================================================================
@@ -380,7 +382,7 @@ test('FIXTURE-15: unknown key-id is rejected', () => {
     GOLDEN.body,
   );
 
-  expect(result).toBe(false);
+  expect(result.valid).toBe(false);
 });
 
 // =========================================================================
