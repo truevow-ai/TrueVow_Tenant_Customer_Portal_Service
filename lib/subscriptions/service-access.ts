@@ -1,6 +1,16 @@
 /**
  * Service Subscription Access Control
- * 
+ *
+ * Pricing model (internal/sales — not publicly displayed):
+ *   INTAKE    Included in base tiers (solo / growth / team)
+ *   SETTLE    Per-report pricing via billing service
+ *   TRACE     Per-case pricing: $149/case entry, $289/case higher complexity.
+ *             Approval-gated. No public pricing or checkout.
+ *             Treatment, Records, Case-Readiness — not case management,
+ *             medical interpretation, legal conclusions, or valuation.
+ *   RETAINER  Undecided. Feature-gated behind billing service entitlement.
+ *   DRAFT     Legacy.
+ *
  * Server-side access checks from unified Billing Service API endpoint.
  * NO HARDCODED DEFAULTS - all data comes from API.
  * 
@@ -217,7 +227,7 @@ export function getServiceDescription(serviceName: ServiceName): string {
     intake: 'Lead capture and intake management',
     draft: 'Legal document validation',
     settle: 'Settlement intelligence and contribution',
-    trace: 'Medical records chronology and demand package',
+    trace: 'Treatment, Records, and Case-Readiness Tracking',
     retainer: 'Engagement management, conflict review, and client activation',
   };
   return descriptions[serviceName];
