@@ -1,9 +1,17 @@
 /**
  * Service Subscription Access Control
  *
- * Pricing model (internal/sales — not publicly displayed):
+ * Customer-facing products (4):
+ *   INTAKE   Capture and qualify prospects
+ *   TRACE    Sign, activate, and develop matters (packages RETAINER internally)
+ *   SETTLE   Prepare for and evaluate resolution
+ *   COMMAND  Portfolio oversight and analytics
  *
- * INTAKE:
+ * RETAINER: Internal architecture only — NOT a customer-facing product.
+ *   Packaged commercially inside TRACE. Law-firm users see the RETAINER
+ *   workspace within the Customer Portal, not as a separate product.
+ *
+ * INTAKE pricing:
  *   Solo / Entry     $499/mo    40 calls   $15/overflow
  *   Growth / Mid     $1,299/mo  100 calls  $12/overflow
  *   Team             $1,999/mo  200 calls  $10/overflow
@@ -12,7 +20,18 @@
  *   qualified leads, audio/transcripts by firm opt-in, export
  *   automation, 180-day retention for enabled audio/transcripts.
  *
- * SETTLE:
+ * TRACE pricing (3 levels, per matter):
+ *   TRACE Start       $35/matter   Engagement, signing, activation, handoff
+ *   TRACE Essential   $179/matter  Start + essential case-development tracking
+ *   TRACE Complete    $299/matter  Full engagement + case-development workflow
+ *   New INTAKE customers: first 12 matters at TRACE Complete (value $3,588)
+ *
+ * TRACE Start includes (via internal RETAINER modules):
+ *   Representation-review workflow, structured conflict-review process,
+ *   engagement-package preparation, Client Portal delivery, consent and
+ *   signatures, completed-copy delivery, matter activation, audit record.
+ *
+ * SETTLE pricing:
  *   Per Case         $79/report  Pay-as-you-go
  *   Pro              $299/mo     15 reports/mo, $25/additional
  *   SETTLE Pro requires active INTAKE or LEVERAGE subscription.
@@ -21,21 +40,11 @@
  *   resets on cancellation.
  *   Public page: two-card model (Per Case $79 / Pro $299).
  *
- * TRACE:
- *   Per-case pricing: $149/case entry, $289/case higher complexity.
- *   Approval-gated. No public pricing or checkout.
- *   Treatment, Records, Case-Readiness — not case management,
- *   medical interpretation, legal conclusions, or valuation.
- *
- * RETAINER:
- *   Undecided. Feature-gated behind billing service entitlement.
- *
- * DRAFT:
- *   Legacy.
+ * DRAFT: Legacy.
  *
  * Server-side access checks from unified Billing Service API endpoint.
  * NO HARDCODED DEFAULTS - all data comes from API.
- * 
+ *
  * GET /api/v1/billing/tenants/{tenant_id}/feature-access
  */
 
