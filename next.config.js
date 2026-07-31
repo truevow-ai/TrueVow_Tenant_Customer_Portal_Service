@@ -2,7 +2,13 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  
+
+  // Transpile shared packages that export raw TypeScript
+  transpilePackages: [
+    '@truevow/auth-client',
+    '@truevow/rbac-engine',
+  ],
+
   // Environment variables exposed to browser
   env: {
     NEXT_PUBLIC_APP_NAME: 'TrueVow Customer Portal',

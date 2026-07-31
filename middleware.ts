@@ -16,6 +16,7 @@ const isPublicApi = createRouteMatcher([
   '/api/webhook/(.*)',
   '/api/trace/(.*)',
   '/api/intake/(.*)',
+  '/api/retainer/(.*)',
 ]);
 
 export default clerkMiddleware((auth, req) => {

@@ -70,7 +70,7 @@ async function getRBACContext(): Promise<RBACContext | null> {
 }
 
 function hasPermission(roleId: string, permission: Permission, domain?: string): boolean {
-  return rbacHasPermission(roleId, permission, domain);
+  return rbacHasPermission(roleId, permission, domain as ClerkDomain | undefined);
 }
 
 // --- Higher-order route wrappers ---
@@ -91,7 +91,7 @@ export function withPermission(permission: Permission, handler: ApiHandler) {
     if (!ctx) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
-    if (!rbacHasPermission(ctx.roleId, permission, ctx.domain)) {
+    if (!rbacHasPermission(ctx.roleId, permission, ctx.domain as ClerkDomain | undefined)) {
       return NextResponse.json(
         {
           error: "Insufficient permissions",

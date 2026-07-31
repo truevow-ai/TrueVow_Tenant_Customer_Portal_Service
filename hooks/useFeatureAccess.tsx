@@ -29,7 +29,7 @@ interface FeatureContextValue {
   tier: Tier;
   
   // Convenience methods
-  hasFeature: (feature: 'intake' | 'leverage' | 'settle' | 'draft' | 'trace') => boolean;
+  hasFeature: (feature: 'intake' | 'leverage' | 'settle' | 'draft' | 'trace' | 'retainer') => boolean;
   isPhaseOne: boolean; // Phase I = INTAKE only
 }
 
@@ -72,7 +72,7 @@ export function FeatureProvider({ children }: { children: ReactNode }) {
     fetchFeatures();
   }, [tenantId, tenantLoading]);
 
-  const hasFeature = (feature: 'intake' | 'leverage' | 'settle' | 'draft' | 'trace'): boolean => {
+  const hasFeature = (feature: 'intake' | 'leverage' | 'settle' | 'draft' | 'trace' | 'retainer'): boolean => {
     if (!features) return false;
     return features.features[feature]?.enabled ?? false;
   };

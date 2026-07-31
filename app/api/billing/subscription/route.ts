@@ -9,7 +9,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, withTenantScope, Permission } from '@/lib/auth/guard';
+import { withPermission, withTenantScope } from '@/lib/auth/guard';
+import { Permission } from '@truevow/rbac-engine';
 
 const BILLING_BASE = process.env.TENANT_BILLING_SERVICE_URL || 'http://localhost:3016';
 const API_KEY = process.env.TENANT_BILLING_SERVICE_API_KEY || '';

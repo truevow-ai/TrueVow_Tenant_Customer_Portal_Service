@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withPermission, Permission } from '@/lib/auth/guard';
+import { withPermission } from '@/lib/auth/guard';
+import { Permission } from '@truevow/rbac-engine';
 
 const SETTLE_URL = process.env.SETTLE_SERVICE_URL || 'http://localhost:3041';
 const SETTLE_KEY = process.env.SETTLE_SERVICE_API_KEY || '';

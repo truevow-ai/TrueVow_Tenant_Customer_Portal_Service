@@ -50,5 +50,18 @@ python ../TrueVow_Shared_Orchestration/orchestrator.py dispatch "<user's request
 
 ## Service-Specific Rules
 
+### ROOT CLEANLINESS — NON-NEGOTIABLE
+The root directory MUST stay clean. ONLY these files are allowed in the project root:
+
+| Allowed in root | Everything else goes to |
+|---|---|
+| `AGENTS.md` | `.md` docs → `docs/<category>/` |
+| `README.md` | Screenshots/images → `docs/screenshots/` |
+| Config files (`.json`, `.js`, `.ts`, `.env*`, `*.toml`, etc.) | Scripts (`.py`, `.bat`, `.ps1`) → `scripts/` |
+| Next.js app structure (`app/`, `components/`, `lib/`, etc.) | Temp/debug outputs (`.txt`, `.html`) → `docs/` or `scripts/outputs/` |
+| | Test documentation → `tests/docs/` |
+
+**Enforcement:** Before committing, verify the root has no stray files: `Get-ChildItem *.md, *.txt, *.png, *.html, *.py, *.bat, *.ps1` should return only `AGENTS.md` and `README.md`.
+
 > Add service-specific rules below. The ecosystem preamble above is auto-generated
 > and wires this agent into the TrueVow Agent Ecosystem.

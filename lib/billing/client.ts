@@ -65,6 +65,7 @@ export interface FeatureAccessResponse {
     leverage: FeatureAccess;
     draft: FeatureAccess;
     trace: FeatureAccess;
+    retainer: FeatureAccess;
   };
   
   addons: AddOnInfo[];

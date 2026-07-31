@@ -13,11 +13,12 @@
 
 ## 📋 **Context**
 
-TrueVow has three distinct user groups:
+TrueVow has four distinct user groups:
 
 1. **TrueVow Staff** (Internal) - Need to manage all tenants, billing, system configuration
 2. **Law Firm Users** (External Customers) - Need to use TrueVow services for their firm
-3. **API Consumers** (Backend) - Multi-tenant backend services
+3. **Prospects and Clients** (External) - Need to review engagement documents, sign, upload evidence, communicate with the firm
+4. **API Consumers** (Backend) - Multi-tenant backend services
 
 **Question:** Should law firm users access services through:
 - **Option A:** Separate Customer Portal repository (CHOSEN ✅)
@@ -251,6 +252,60 @@ SaaS Admin (Internal)          Customer Portal (External)
 - Agent definitions in `.opencode/agents/`
 - Agent rules in `.opencode/rules/agent-rules.md`
 - Phase 2 skill documentation in `.opencode/skills/`
+
+---
+
+## 🔄 **Phase 3 — Unified Portal Architecture (July 2026)**
+
+### Decision: Fourth User Group and Separate Client Portal
+
+**Status:** ✅ Architecture Amended
+
+**Context:** RETAINER engagement management has been built (45 endpoints, EventEnvelope v1.0.1, 13 workflow states). Prospects and signed clients represent a fourth user group distinct from law-firm staff. They need document review, e-signature, questions, and evidence upload without entering the internal law-firm Customer Portal.
+
+### Three-Portal Architecture
+
+| Portal | Repo | Users | Auth | Purpose |
+|--------|------|-------|------|---------|
+| **SaaS Admin** | `2025-TrueVow-SaaS-Administration` | TrueVow staff | Internal SSO | Manage tenants, billing |
+| **Customer Portal** | This repo | Law-firm attorneys/staff | Clerk | Intake, Retainer, Trace, Settle, Command |
+| **Client Portal** | New repo (TBD) | Prospects, signed clients | Invitation token / OTP | Engagement review, uploads, messages |
+
+### Key Decisions
+
+1. **RETAINER added to this Customer Portal** (`/dashboard/retainer`) — Internal firm workspace for candidate review, conflicts, packages, activation
+2. **Separate Client Portal deployable** — External users never enter the Customer Portal
+3. **One shared Client Portal** — RETAINER (as "Engagement") and TRACE (as "My Matter") served through lifecycle-based permissions
+4. **No auth session sharing** — Clerk (Customer Portal) and invitation tokens (Client Portal) are completely separate
+5. **One external identity and inbox** — Client has one portal account and one message inbox across their entire relationship with the firm
+
+### RETAINER API Integration
+
+- Types mapped 1:1 from RETAINER Pydantic schemas → `lib/api/retainer/generated/schema.ts`
+- Restricted proxy with strict route allowlist → `app/api/retainer/[...path]/route.ts`
+- Clerk + tenant membership verification on every proxied request
+- Authority-class enforcement: `ATTY_AUTH`, `STAFF_AUTH`, `FIRM_POLICY`
+- Stable error mapping: `RET_AUTHORITY_MISSING`, `RET_STATE_CONFLICT`, etc.
+- No catch-all — only 34 explicitly allowlisted route patterns
+
+### Data Ownership
+
+| Owner | What it owns |
+|-------|--------------|
+| **Customer Portal** | UI preferences, saved filters, display settings |
+| **RETAINER** | Representation decisions, conflicts, packages, signatures, activation |
+| **TRACE** | Evidence requests, client responses, matter completeness |
+| **Shared Platform** (future) | Client identity, access grants, branding, communications, documents, audit |
+
+### Product Label Separation
+
+| Internal (this portal) | External (Client Portal) |
+|---|---|
+| RETAINER | Engagement |
+| TRACE | My Matter / Requests |
+| SETTLE | Settlement Review |
+
+
 
 ---
 

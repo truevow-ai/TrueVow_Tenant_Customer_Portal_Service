@@ -76,6 +76,7 @@ function DashboardLayoutContent({
   const showDraft = isPreviewBypass || hasFeature('draft');
   const showSettle = isPreviewBypass || hasFeature('settle');
   const showTrace = isPreviewBypass || hasFeature('trace');
+  const showRetainer = isPreviewBypass || hasFeature('retainer');
   const showConnect = false; // CONNECT retracted for Phase I launch
 
   return (
@@ -116,6 +117,13 @@ function DashboardLayoutContent({
           {showTrace && (
             <NavLink href="/dashboard/trace" icon={<Stethoscope size={20} />} collapsed={collapsed}>
               TRACE
+            </NavLink>
+          )}
+          
+          {/* RETAINER - Engagement management */}
+          {showRetainer && (
+            <NavLink href="/dashboard/retainer" icon={<FileCheck size={20} />} collapsed={collapsed}>
+              RETAINER
             </NavLink>
           )}
           

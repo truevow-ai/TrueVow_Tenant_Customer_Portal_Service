@@ -17,7 +17,9 @@
     "test:backend": "playwright test tests/backend/",
     "test:all": "playwright test",
     "test:crud": "playwright test tests/backend/database-crud-tests.spec.ts",
-    "test:api": "playwright test tests/backend/api-integration-tests.spec.ts"
+    "test:api": "playwright test tests/backend/api-integration-tests.spec.ts",
+    "generate:retainer-api": "node scripts/generate-retainer-api.cjs",
+    "check:retainer-contract": "node scripts/generate-retainer-api.cjs --check"
   },
   "dependencies": {
     "@clerk/nextjs": "^5.0.0",
