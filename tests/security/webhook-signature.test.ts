@@ -400,3 +400,197 @@ test('FIXTURE-16: golden hash and signature are internally consistent', () => {
   const signature = crypto.createHmac('sha256', GOLDEN.secret).update(signingString).digest('hex');
   expect(signature).toBe(goldenSignature);
 });
+
+// =========================================================================
+// D1 Fixures — Path Canonicalization (SaaS Admin)
+// Trailing slash, query string, encoded path MUST be rejected.
+// The path in the signing string must match EXACTLY.
+// =========================================================================
+
+test('FIXTURE-D1-01: trailing slash on path is rejected', () => {
+  const pathNoSlash = GOLDEN.path;
+  const pathWithSlash = GOLDEN.path + '/';
+
+  const bodyHash = crypto.createHash('sha256').update(GOLDEN.body).digest('hex');
+  const signingString = `${GOLDEN.timestamp}:${GOLDEN.method}:${pathNoSlash}:${bodyHash}`;
+  const signature = crypto.createHmac('sha256', GOLDEN.secret).update(signingString).digest('hex');
+
+  const result = verifySignature(
+    { 'x-truevow-key-id': GOLDEN.keyId, 'x-truevow-timestamp': GOLDEN.timestamp, 'x-truevow-signature': signature },
+    GOLDEN.method,
+    pathWithSlash,
+    GOLDEN.body,
+  );
+  expect(result.valid).toBe(false);
+});
+
+test('FIXTURE-D1-02: query string on path is rejected', () => {
+  const pathClean = GOLDEN.path;
+  const pathWithQuery = GOLDEN.path + '?tenant_id=test';
+
+  const bodyHash = crypto.createHash('sha256').update(GOLDEN.body).digest('hex');
+  const signingString = `${GOLDEN.timestamp}:${GOLDEN.method}:${pathClean}:${bodyHash}`;
+  const signature = crypto.createHmac('sha256', GOLDEN.secret).update(signingString).digest('hex');
+
+  const result = verifySignature(
+    { 'x-truevow-key-id': GOLDEN.keyId, 'x-truevow-timestamp': GOLDEN.timestamp, 'x-truevow-signature': signature },
+    GOLDEN.method,
+    pathWithQuery,
+    GOLDEN.body,
+  );
+  expect(result.valid).toBe(false);
+});
+
+test('FIXTURE-D1-03: double-slash prefix on path is rejected', () => {
+  const pathClean = GOLDEN.path;
+  const pathDouble = '//' + GOLDEN.path.replace(/^\//, '');
+
+  const bodyHash = crypto.createHash('sha256').update(GOLDEN.body).digest('hex');
+  const signingString = `${GOLDEN.timestamp}:${GOLDEN.method}:${pathClean}:${bodyHash}`;
+  const signature = crypto.createHmac('sha256', GOLDEN.secret).update(signingString).digest('hex');
+
+  const result = verifySignature(
+    { 'x-truevow-key-id': GOLDEN.keyId, 'x-truevow-timestamp': GOLDEN.timestamp, 'x-truevow-signature': signature },
+    GOLDEN.method,
+    pathDouble,
+    GOLDEN.body,
+  );
+  expect(result.valid).toBe(false);
+});
+
+test('FIXTURE-D1-04: URL-encoded path variant is rejected', () => {
+  const pathClean = GOLDEN.path;
+  const pathEncoded = '/api/v1/retainer/webhooks%2Fcandidate-submitted';
+
+  const bodyHash = crypto.createHash('sha256').update(GOLDEN.body).digest('hex');
+  const signingString = `${GOLDEN.timestamp}:${GOLDEN.method}:${pathClean}:${bodyHash}`;
+  const signature = crypto.createHmac('sha256', GOLDEN.secret).update(signingString).digest('hex');
+
+  const result = verifySignature(
+    { 'x-truevow-key-id': GOLDEN.keyId, 'x-truevow-timestamp': GOLDEN.timestamp, 'x-truevow-signature': signature },
+    GOLDEN.method,
+    pathEncoded,
+    GOLDEN.body,
+  );
+  expect(result.valid).toBe(false);
+});
+
+test('FIXTURE-D1-05: correct exact path passes', () => {
+  const bodyHash = crypto.createHash('sha256').update(GOLDEN.body).digest('hex');
+  const signingString = `${GOLDEN.timestamp}:${GOLDEN.method}:${GOLDEN.path}:${bodyHash}`;
+  const signature = crypto.createHmac('sha256', GOLDEN.secret).update(signingString).digest('hex');
+
+  const result = verifySignature(
+    { 'x-truevow-key-id': GOLDEN.keyId, 'x-truevow-timestamp': GOLDEN.timestamp, 'x-truevow-signature': signature },
+    GOLDEN.method,
+    GOLDEN.path,
+    GOLDEN.body,
+  );
+  expect(result.valid).toBe(true);
+});
+
+// =========================================================================
+// D3 Fixtures — Per-Link Key Isolation (RETAINER)
+// A key valid for one link MUST NOT be accepted on another.
+// No global secret fallback.
+// =========================================================================
+
+test('FIXTURE-D3-01: INTAKE key rejected for activation path', () => {
+  const intakeKeyId = 'tv-intake-to-retainer-v1';
+  const activationPath = '/api/v1/matters/activate';
+  const bodyStr = '{"tenant_id":"00000000-0000-4000-a000-000000000001"}';
+
+  const bodyHash = crypto.createHash('sha256').update(bodyStr).digest('hex');
+  const signingString = `${GOLDEN.timestamp}:POST:${activationPath}:${bodyHash}`;
+  const signature = crypto.createHmac('sha256', GOLDEN.secret).update(signingString).digest('hex');
+
+  const result = verifySignature(
+    { 'x-truevow-key-id': intakeKeyId, 'x-truevow-timestamp': GOLDEN.timestamp, 'x-truevow-signature': signature },
+    'POST',
+    activationPath,
+    bodyStr,
+  );
+  // INTAKE key must not authorize SaaS Admin activation — rejected by path binding
+  expect(result.valid).toBe(false);
+});
+
+test('FIXTURE-D3-02: correct link key passes on its authorized path', () => {
+  const bodyStr = '{"tenant_id":"00000000-0000-4000-a000-000000000001","matter_candidate_id":"00000000-0000-4000-a000-000000000002"}';
+
+  // Set env for this test
+  process.env.TRUEVOW_WEBHOOK_KEY_ID = GOLDEN.keyId;
+  process.env.TRUEVOW_WEBHOOK_SECRET = GOLDEN.secret;
+
+  const bodyHash = crypto.createHash('sha256').update(bodyStr).digest('hex');
+  const signingString = `${GOLDEN.timestamp}:${GOLDEN.method}:${GOLDEN.path}:${bodyHash}`;
+  const signature = crypto.createHmac('sha256', GOLDEN.secret).update(signingString).digest('hex');
+
+  const result = verifySignature(
+    { 'x-truevow-key-id': GOLDEN.keyId, 'x-truevow-timestamp': GOLDEN.timestamp, 'x-truevow-signature': signature },
+    GOLDEN.method,
+    GOLDEN.path,
+    bodyStr,
+  );
+  expect(result.valid).toBe(true);
+});
+
+test('FIXTURE-D3-03: unknown key ID is rejected', () => {
+  const bodyHash = crypto.createHash('sha256').update(GOLDEN.body).digest('hex');
+  const signingString = `${GOLDEN.timestamp}:${GOLDEN.method}:${GOLDEN.path}:${bodyHash}`;
+  const signature = crypto.createHmac('sha256', GOLDEN.secret).update(signingString).digest('hex');
+
+  const result = verifySignature(
+    { 'x-truevow-key-id': 'tv-unknown-service-key-xyz', 'x-truevow-timestamp': GOLDEN.timestamp, 'x-truevow-signature': signature },
+    GOLDEN.method,
+    GOLDEN.path,
+    GOLDEN.body,
+  );
+  expect(result.valid).toBe(false);
+});
+
+test('FIXTURE-D3-04: correct secret with wrong key_id is rejected', () => {
+  const bodyHash = crypto.createHash('sha256').update(GOLDEN.body).digest('hex');
+  const signingString = `${GOLDEN.timestamp}:${GOLDEN.method}:${GOLDEN.path}:${bodyHash}`;
+  // Sign with GOLDEN.secret but claim a different key_id
+  const signature = crypto.createHmac('sha256', GOLDEN.secret).update(signingString).digest('hex');
+
+  const result = verifySignature(
+    { 'x-truevow-key-id': 'tv-retainer-to-saas-admin-v1', 'x-truevow-timestamp': GOLDEN.timestamp, 'x-truevow-signature': signature },
+    GOLDEN.method,
+    GOLDEN.path,
+    GOLDEN.body,
+  );
+  // Secret doesn't match the claimed key_id → rejected
+  expect(result.valid).toBe(false);
+});
+
+// =========================================================================
+// D4 Fixtures — INTAKE Contract Test Coverage
+// Exact canonical path, non-ASCII body, deterministic signature, primary/secondary
+// =========================================================================
+
+test('FIXTURE-D4-01: exact canonical path matches CANONICAL_PATHS constant', () => {
+  expect(GOLDEN.path).toBe(CANONICAL_PATHS.INTAKE_TO_RETAINER_CANDIDATE);
+});
+
+test('FIXTURE-D4-02: non-ASCII UTF-8 body produces deterministic hash', () => {
+  const nonAsciiBody = '{"name":"Sarah Johnson","incident":"accident de voiture \u00e0 Montr\u00e9al"}';
+  const hash1 = crypto.createHash('sha256').update(nonAsciiBody).digest('hex');
+  const hash2 = crypto.createHash('sha256').update(Buffer.from(nonAsciiBody, 'utf-8')).digest('hex');
+  expect(hash1).toBe(hash2);
+});
+
+test('FIXTURE-D4-03: modified body (one character) produces different signature', () => {
+  const body1 = GOLDEN.body;
+  const body2 = GOLDEN.body.replace('candidate_version":1', 'candidate_version":2');
+
+  const hash1 = crypto.createHash('sha256').update(body1).digest('hex');
+  const hash2 = crypto.createHash('sha256').update(body2).digest('hex');
+  expect(hash1).not.toBe(hash2);
+
+  const sig1 = crypto.createHmac('sha256', GOLDEN.secret)
+    .update(`${GOLDEN.timestamp}:${GOLDEN.method}:${GOLDEN.path}:${hash1}`).digest('hex');
+  const sig2 = crypto.createHmac('sha256', GOLDEN.secret)
+    .update(`${GOLDEN.timestamp}:${GOLDEN.method}:${GOLDEN.path}:${hash2}`).digest('hex');
+  expect(sig1).not.toBe(sig2);
+});
