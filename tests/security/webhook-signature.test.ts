@@ -594,3 +594,102 @@ test('FIXTURE-D4-03: modified body (one character) produces different signature'
     .update(`${GOLDEN.timestamp}:${GOLDEN.method}:${GOLDEN.path}:${hash2}`).digest('hex');
   expect(sig1).not.toBe(sig2);
 });
+
+// =========================================================================
+// Hop 1 High-Value Cases — INTAKE → RETAINER
+// =========================================================================
+
+test('FIXTURE-HOP1-01: invalid signature length (not 64 hex chars) is rejected', () => {
+  // Sign correctly then truncate the signature
+  const bodyHash = crypto.createHash('sha256').update(GOLDEN.body).digest('hex');
+  const signingString = `${GOLDEN.timestamp}:${GOLDEN.method}:${GOLDEN.path}:${bodyHash}`;
+  const fullSig = crypto.createHmac('sha256', GOLDEN.secret).update(signingString).digest('hex');
+  const shortSig = fullSig.slice(0, 32); // Only 32 chars, not 64
+
+  const result = verifySignature(
+    { 'x-truevow-key-id': GOLDEN.keyId, 'x-truevow-timestamp': GOLDEN.timestamp, 'x-truevow-signature': shortSig },
+    GOLDEN.method,
+    GOLDEN.path,
+    GOLDEN.body,
+  );
+  expect(result.valid).toBe(false);
+});
+
+test('FIXTURE-HOP1-02: non-hex characters in signature rejected', () => {
+  const result = verifySignature(
+    { 'x-truevow-key-id': GOLDEN.keyId, 'x-truevow-timestamp': GOLDEN.timestamp, 'x-truevow-signature': 'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz' },
+    GOLDEN.method,
+    GOLDEN.path,
+    GOLDEN.body,
+  );
+  expect(result.valid).toBe(false);
+});
+
+test('FIXTURE-HOP1-03: INTAKE key used on RETAINER→SaaS Admin path is rejected', () => {
+  // INTAKE key signing an activation path — must fail
+  const activationPath = CANONICAL_PATHS.RETAINER_TO_SAAS_ACTIVATE;
+  const bodyStr = '{"tenant_id":"00000000-0000-4000-a000-000000000001"}';
+  const bodyHash = crypto.createHash('sha256').update(bodyStr).digest('hex');
+  const signingString = `${GOLDEN.timestamp}:POST:${activationPath}:${bodyHash}`;
+  const signature = crypto.createHmac('sha256', GOLDEN.secret).update(signingString).digest('hex');
+
+  const result = verifySignature(
+    { 'x-truevow-key-id': 'tv-intake-to-retainer-v1', 'x-truevow-timestamp': GOLDEN.timestamp, 'x-truevow-signature': signature },
+    'POST',
+    activationPath,
+    bodyStr,
+  );
+  expect(result.valid).toBe(false);
+});
+
+test('FIXTURE-HOP1-04: unknown disabled key is rejected', () => {
+  const bodyHash = crypto.createHash('sha256').update(GOLDEN.body).digest('hex');
+  const signingString = `${GOLDEN.timestamp}:${GOLDEN.method}:${GOLDEN.path}:${bodyHash}`;
+  const signature = crypto.createHmac('sha256', GOLDEN.secret).update(signingString).digest('hex');
+
+  const result = verifySignature(
+    { 'x-truevow-key-id': 'tv-intake-to-retainer-v1-disabled', 'x-truevow-timestamp': GOLDEN.timestamp, 'x-truevow-signature': signature },
+    GOLDEN.method,
+    GOLDEN.path,
+    GOLDEN.body,
+  );
+  expect(result.valid).toBe(false);
+});
+
+test('FIXTURE-HOP1-05: identical payload with same key produces deterministic signature', () => {
+  const sig1 = crypto.createHmac('sha256', GOLDEN.secret)
+    .update(`${GOLDEN.timestamp}:${GOLDEN.method}:${GOLDEN.path}:${goldenBodyHash}`).digest('hex');
+  const sig2 = crypto.createHmac('sha256', GOLDEN.secret)
+    .update(`${GOLDEN.timestamp}:${GOLDEN.method}:${GOLDEN.path}:${goldenBodyHash}`).digest('hex');
+  expect(sig1).toBe(sig2);
+  expect(sig1).toBe(goldenSignature);
+});
+
+test('FIXTURE-HOP1-06: different payload with same timestamp produces different signature', () => {
+  const body1 = GOLDEN.body;
+  const body2 = '{"event_id":"different","tenant_id":"00000000-0000-4000-a000-000000000001"}';
+
+  const hash1 = crypto.createHash('sha256').update(body1).digest('hex');
+  const hash2 = crypto.createHash('sha256').update(body2).digest('hex');
+  expect(hash1).not.toBe(hash2);
+
+  const sig1 = crypto.createHmac('sha256', GOLDEN.secret)
+    .update(`${GOLDEN.timestamp}:${GOLDEN.method}:${GOLDEN.path}:${hash1}`).digest('hex');
+  const sig2 = crypto.createHmac('sha256', GOLDEN.secret)
+    .update(`${GOLDEN.timestamp}:${GOLDEN.method}:${GOLDEN.path}:${hash2}`).digest('hex');
+  expect(sig1).not.toBe(sig2);
+});
+
+test('FIXTURE-HOP1-07: wrong HTTP method (GET instead of POST) is rejected', () => {
+  const bodyHash = crypto.createHash('sha256').update(GOLDEN.body).digest('hex');
+  const signingString = `${GOLDEN.timestamp}:POST:${GOLDEN.path}:${bodyHash}`;
+  const signature = crypto.createHmac('sha256', GOLDEN.secret).update(signingString).digest('hex');
+
+  const result = verifySignature(
+    { 'x-truevow-key-id': GOLDEN.keyId, 'x-truevow-timestamp': GOLDEN.timestamp, 'x-truevow-signature': signature },
+    'GET',  // wrong method
+    GOLDEN.path,
+    GOLDEN.body,
+  );
+  expect(result.valid).toBe(false);
+});
