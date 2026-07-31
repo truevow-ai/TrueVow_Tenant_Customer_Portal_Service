@@ -992,13 +992,13 @@ function FeatureCard({
 
 // ─── Manage Subscription Card ────────────────────────────────────────────────
 
-const TIER_ORDER = ['foundation', 'solo', 'growth'] as const;
+const TIER_ORDER = ['solo', 'growth', 'team'] as const;
 type TierKey = typeof TIER_ORDER[number];
 
 const TIER_INFO: Record<string, { name: string; price: string; description: string }> = {
-  foundation: { name: 'Foundation', price: 'Free', description: 'Essential tools to get started' },
-  solo: { name: 'Solo', price: '$299/mo', description: 'Pay-per-use with premium service access' },
-  growth: { name: 'Growth', price: '$1,479/mo', description: 'Unlimited access + dedicated support' },
+  solo: { name: 'INTAKE', price: '$499/mo', description: '40 calls included, $15/call overage' },
+  growth: { name: 'PIPELINE', price: '$1,299/mo', description: '100 calls included, $12/call overage' },
+  team: { name: 'OPERATIONS', price: '$1,999/mo', description: '200 calls included, $10/call overage' },
 };
 
 function ManageSubscriptionCard({
