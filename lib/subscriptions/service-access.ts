@@ -2,14 +2,36 @@
  * Service Subscription Access Control
  *
  * Pricing model (internal/sales — not publicly displayed):
- *   INTAKE    Included in base tiers (solo / growth / team)
- *   SETTLE    Per-report pricing via billing service
- *   TRACE     Per-case pricing: $149/case entry, $289/case higher complexity.
- *             Approval-gated. No public pricing or checkout.
- *             Treatment, Records, Case-Readiness — not case management,
- *             medical interpretation, legal conclusions, or valuation.
- *   RETAINER  Undecided. Feature-gated behind billing service entitlement.
- *   DRAFT     Legacy.
+ *
+ * INTAKE:
+ *   Solo / Entry     $499/mo    40 calls   $15/overflow
+ *   Growth / Mid     $1,299/mo  100 calls  $12/overflow
+ *   Team             $1,999/mo  200 calls  $10/overflow
+ *   All tiers: month-to-month, no lead unlock fees, all records
+ *   visible, Spanish agent, calendar booking, priority SMS for
+ *   qualified leads, audio/transcripts by firm opt-in, export
+ *   automation, 180-day retention for enabled audio/transcripts.
+ *
+ * SETTLE:
+ *   Per Case         $79/report  Pay-as-you-go
+ *   Pro              $299/mo     15 reports/mo, $25/additional
+ *   SETTLE Pro requires active INTAKE or LEVERAGE subscription.
+ *   Unused reports roll over (cap 63), expire 12 months after
+ *   issuance, do not carry over after cancellation. Pro access
+ *   resets on cancellation.
+ *   Public page: two-card model (Per Case $79 / Pro $299).
+ *
+ * TRACE:
+ *   Per-case pricing: $149/case entry, $289/case higher complexity.
+ *   Approval-gated. No public pricing or checkout.
+ *   Treatment, Records, Case-Readiness — not case management,
+ *   medical interpretation, legal conclusions, or valuation.
+ *
+ * RETAINER:
+ *   Undecided. Feature-gated behind billing service entitlement.
+ *
+ * DRAFT:
+ *   Legacy.
  *
  * Server-side access checks from unified Billing Service API endpoint.
  * NO HARDCODED DEFAULTS - all data comes from API.
