@@ -193,13 +193,26 @@
     },
     "subscription_states": {
       "PENDING":    "New usage blocked, limited onboarding",
-      "TRIAL":      "Allowed per trial terms, read/write",
+      "TRIAL_ACTIVE": "Full-featured trial access per offer terms. Customer may select successor plan at any time.",
       "ACTIVE":     "Allowed, read/write",
+      "TRIAL_EXPIRED": "Trial ended without paid successor. Portal access preserved. Paid plan selection available.",
       "PAST_DUE":   "Allowed during grace, read/write",
       "GRACE":      "Allowed per policy, read/write",
       "SUSPENDED":  "New billable work blocked, read-only",
       "CANCELLED":  "Until paid-through date, read-only afterward",
       "EXPIRED":    "Blocked, read-only/export per policy"
+    },
+    "trial_offer": {
+      "offer_code": "INTAKE_TRIAL_90D_12_V1",
+      "product": "INTAKE",
+      "duration_days": 90,
+      "intake_limit": 12,
+      "effective_date": "2026-08-01",
+      "description": "Full-featured 90-day or 12-intake trial. Customer may select Solo/Growth/Team at any time while preserving remaining trial benefit. Automatic, uninterrupted conversion when successor plan selected and payment method confirmed.",
+      "successor_plans": ["solo", "growth", "team"],
+      "conversion_guarantee": "If a paid plan is selected and payment method confirmed before trial end, conversion is automatic and uninterrupted. No charge until trial ends.",
+      "trial_end_determination": "Whichever occurs first: 12th meterable qualifying intake OR 90-day deadline.",
+      "no_successor_behavior": "TRIAL_EXPIRED state. Portal access preserved. Historical records visible. Paid plan selection available. No automatic enrollment."
     },
     "founding_member": {
       "free_period_months": 4,

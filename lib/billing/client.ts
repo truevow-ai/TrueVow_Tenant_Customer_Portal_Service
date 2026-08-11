@@ -22,6 +22,21 @@ const API_KEY = process.env.TENANT_BILLING_SERVICE_API_KEY ||
 
 export type Tier = 'solo' | 'growth' | 'team' | null;
 
+export type SubscriptionStatus =
+  | 'PENDING'
+  | 'TRIAL_ACTIVE'
+  | 'ACTIVE'
+  | 'TRIAL_EXPIRED'
+  | 'PAST_DUE'
+  | 'GRACE'
+  | 'SUSPENDED'
+  | 'CANCELLED'
+  | 'EXPIRED';
+
+export type TrialEndReason = 'INTAKE_LIMIT' | 'TIME_LIMIT' | null;
+
+export type SuccessorPlanStatus = 'NONE' | 'SELECTED' | 'BILLING_READY';
+
 export interface FeatureAccess {
   enabled: boolean;
   source: 'tier' | 'addon' | 'founding_benefit' | null;
@@ -54,11 +69,39 @@ export interface SettleStatus {
   launch_date: string | null;
 }
 
+export interface TrialInfo {
+  offer_code: string;
+  trial_started_at: string;
+  trial_expires_at: string;
+  trial_ended_at: string | null;
+  trial_end_reason: TrialEndReason;
+  intakes_used: number;
+  intake_limit: number;
+  duration_days: number;
+}
+
+export interface SuccessorPlan {
+  plan_id: 'solo' | 'growth' | 'team';
+  plan_display_name: string;
+  plan_version_id: string;
+  monthly_price_cents: number;
+  currency: string;
+  selected_at: string;
+  status: SuccessorPlanStatus;
+  billing_ready: boolean;
+}
+
 export interface FeatureAccessResponse {
   tenant_id: string;
   tier: Tier;
   subscription_status: string;
-  
+
+  trial?: TrialInfo | null;
+
+  successor?: SuccessorPlan | null;
+
+  paid_activated_at?: string | null;
+
   features: {
     intake: FeatureAccess;
     settle: FeatureAccess;
@@ -67,11 +110,11 @@ export interface FeatureAccessResponse {
     trace: FeatureAccess;
     retainer: FeatureAccess;
   };
-  
+
   addons: AddOnInfo[];
-  
+
   founding_intelligence: FoundingIntelligenceInfo | null;
-  
+
   settle_status: SettleStatus;
 }
 
@@ -161,6 +204,69 @@ export function getDashboardAccessTierLabel(tier: number): string {
     case 4: return 'Apex';
     default: return 'Unknown';
   }
+}
+
+/**
+ * Check if the subscription status represents an active trial.
+ */
+export function isTrialActive(status: string): boolean {
+  return status === 'TRIAL_ACTIVE';
+}
+
+/**
+ * Check if the subscription status represents a trial that expired without a successor.
+ */
+export function isTrialExpired(status: string): boolean {
+  return status === 'TRIAL_EXPIRED';
+}
+
+/**
+ * Check if the subscription status represents a paid active plan.
+ */
+export function isPaidActive(status: string): boolean {
+  return status === 'ACTIVE';
+}
+
+/**
+ * Calculate days remaining in the trial. Returns null if trial is not active.
+ */
+export function calculateTrialDaysRemaining(trial: TrialInfo): number | null {
+  if (!trial || trial.trial_ended_at) return null;
+  const now = Date.now();
+  const expiresAt = new Date(trial.trial_expires_at).getTime();
+  const remaining = Math.max(0, Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24)));
+  return remaining;
+}
+
+/**
+ * Calculate trial intake progress as a percentage (0-100).
+ */
+export function calculateIntakeProgressPercent(trial: TrialInfo): number {
+  if (!trial || trial.intake_limit === 0) return 0;
+  return Math.min(100, Math.round((trial.intakes_used / trial.intake_limit) * 100));
+}
+
+/**
+ * Format date string to human-readable format.
+ */
+export function formatDate(isoString: string): string {
+  return new Date(isoString).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+/**
+ * Format a successor plan ID to its display name.
+ */
+export function getPlanDisplayName(planId: string): string {
+  const names: Record<string, string> = {
+    solo: 'INTAKE',
+    growth: 'PIPELINE',
+    team: 'OPERATIONS',
+  };
+  return names[planId] || planId;
 }
 
 /**

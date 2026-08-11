@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@truevow/auth';
 import {
   CreditCard, AlertCircle, Users, ShieldCheck, Building2, Activity,
   ArrowRight, TrendingUp, BarChart3, Star, Zap, DollarSign, Percent, Check,
@@ -15,8 +16,14 @@ import {
   formatCents,
   getDashboardAccessTierLabel,
   getNextTierProgress,
+  isTrialActive,
+  isTrialExpired,
+  isPaidActive,
 } from '@/lib/billing/client';
 import type { FoundingIntelligenceInfo, AddOnInfo } from '@/lib/billing/client';
+import { TrialStatusCard } from '@/components/billing/TrialStatusCard';
+import { TrialExpiredCard } from '@/components/billing/TrialExpiredCard';
+import { SuccessorPlanBadge } from '@/components/billing/SuccessorPlanBadge';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,13 +94,14 @@ const MOCK_USAGE: UsageData = {
 export default function BillingPage() {
   const { user } = useUser();
   const { tenantId } = useTenantDev();
+  const router = useRouter();
   // Feature access already loaded by the FeatureProvider wrapping the dashboard layout
   const { features, isLoading: featuresLoading, hasFeature } = useFeatureAccess();
 
-  // Role — set in Clerk publicMetadata by the platform ops team
+  // Role — set in Supabase user_metadata by the platform ops team
   const isAdmin = !!(
-    user?.publicMetadata?.role === 'admin' ||
-    user?.publicMetadata?.isAdmin === true
+    user?.user_metadata?.role === 'admin' ||
+    user?.user_metadata?.isAdmin === true
   );
 
   const [activeTab, setActiveTab] = useState<'subscription' | 'admin'>('subscription');
@@ -172,6 +180,12 @@ export default function BillingPage() {
   const intakeFeature      = features?.features?.intake;
   const foundingIntel      = features?.founding_intelligence ?? null;
   const addons             = features?.addons ?? [];
+  const trial              = features?.trial ?? null;
+  const successor          = features?.successor ?? null;
+
+  const trialActive       = isTrialActive(subscriptionStatus);
+  const trialExpired      = isTrialExpired(subscriptionStatus);
+  const paidActive        = isPaidActive(subscriptionStatus);
 
   const planName        = tier === 'growth' ? 'Growth' : tier === 'solo' ? 'Solo' : 'Foundation';
   const freeUnlocks     = intakeFeature?.monthly_quota ?? 11;
@@ -182,6 +196,32 @@ export default function BillingPage() {
   const fiProgress      = foundingIntel
     ? getNextTierProgress(foundingIntel.verified_submissions)
     : null;
+
+  const [selectingPlan, setSelectingPlan] = useState(false);
+
+  const handleSelectSuccessorPlan = async (planId: 'solo' | 'growth' | 'team') => {
+    if (!tenantId) return;
+    setSelectingPlan(true);
+    try {
+      const res = await fetch('/api/billing/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, plan_id: planId }),
+      });
+      const data = await res.json();
+      if (res.ok || data._fallback) {
+        window.location.reload();
+      }
+    } catch {
+      // silently ignore — feature-access refresh handles stale state
+    } finally {
+      setSelectingPlan(false);
+    }
+  };
+
+  const navigateToPlanSelection = () => {
+    router.push('/pricing');
+  };
 
   // ─── Loading state ────────────────────────────────────────────────────────
   if (featuresLoading) {
@@ -393,7 +433,11 @@ export default function BillingPage() {
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-card-foreground">
-                  {user?.fullName ? `${user.fullName}'s Subscription` : 'Your Subscription'}
+                  {user?.user_metadata?.full_name
+                    ? `${user.user_metadata.full_name}'s Subscription`
+                    : user?.email
+                      ? `${user.email}'s Subscription`
+                      : 'Your Subscription'}
                 </h2>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
@@ -409,6 +453,28 @@ export default function BillingPage() {
               </div>
           </div>
         </div>
+
+          {/* ── Trial Status ───────────────────────────────────────────────── */}
+          {trialActive && trial && (
+            <TrialStatusCard
+              trial={trial}
+              successor={successor}
+              onSelectPlan={navigateToPlanSelection}
+            />
+          )}
+
+          {/* ── Trial Expired ─────────────────────────────────────────────── */}
+          {trialExpired && trial && (
+            <TrialExpiredCard
+              trial={trial}
+              onSelectPlan={handleSelectSuccessorPlan}
+            />
+          )}
+
+          {/* ── Successor Plan Badge (paid active with successor context) ─── */}
+          {paidActive && successor && (
+            <SuccessorPlanBadge successor={successor} />
+          )}
 
           {/* ── Manage Subscription ───────────────────────────────────────── */}
           <ManageSubscriptionCard
@@ -670,8 +736,8 @@ export default function BillingPage() {
             </div>
           </div>
 
-          {/* ── Available Service Upgrades (Solo tier only) ───────────────── */}
-          {tier === 'solo' && (
+          {/* ── Available Service Upgrades (Solo tier, non-trial) ──────────── */}
+          {tier === 'solo' && !trialActive && (
             <div className="mb-8">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
                 Available Service Upgrades
@@ -1013,6 +1079,8 @@ function ManageSubscriptionCard({
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
 
+  const isTrial = isTrialActive(subscriptionStatus) || isTrialExpired(subscriptionStatus);
+
   const currentTierKey = (currentTier?.toLowerCase() || 'foundation') as TierKey;
   const currentIndex = TIER_ORDER.indexOf(currentTierKey);
 
@@ -1115,7 +1183,14 @@ function ManageSubscriptionCard({
       </div>
 
       {/* Action buttons */}
-      <div className="flex flex-wrap gap-3">
+      {isTrial ? (
+        <p className="text-sm text-muted-foreground border-t border-border pt-4">
+          Plan tier changes are not available during trial. Visit the{' '}
+          <Link href="/pricing" className="text-primary hover:underline">pricing page</Link> to
+          select your plan for when your trial ends.
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-3">
         {canUpgrade && nextTier && (
           <button
             onClick={() => handleTierChange(nextTier)}
@@ -1154,6 +1229,7 @@ function ManageSubscriptionCard({
           </button>
         )}
       </div>
+      )}
 
       {/* Cancel confirmation modal */}
       {showCancelModal && (
