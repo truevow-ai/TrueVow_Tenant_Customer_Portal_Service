@@ -1,19 +1,22 @@
 /**
  * Proxy: GET /api/cs-support/kb
  * Searches the TrueVow knowledge base (published articles only).
- * No auth required beyond being a logged-in Clerk user.
+ * No auth required beyond being a logged-in Supabase user.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs/server';
+import { verifySupabaseJwt } from '@truevow/auth';
 
 const FLS_BASE = process.env.CUSTOMER_FIRST_LINE_SUPPORT_SERVICE_URL || 'http://localhost:3066';
 const FLS_API_KEY = process.env.CUSTOMER_FIRST_LINE_SUPPORT_SERVICE_API_KEY || '';
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await currentUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const ctx = await verifySupabaseJwt(token);
+    if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const sp = request.nextUrl.searchParams;
     const query = sp.get('q');

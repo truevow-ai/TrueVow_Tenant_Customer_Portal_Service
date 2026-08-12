@@ -45,7 +45,7 @@ The TrueVow Customer Portal is the **law firm user interface** for accessing Tru
 
 - Node.js 18+ and npm 9+
 - Tenant Application backend running at `http://localhost:8000`
-- Clerk account for authentication
+- Supabase account for authentication (@truevow/auth)
 
 ### **Installation**
 
@@ -59,8 +59,8 @@ cp .env.example .env.local
 # Edit .env.local with your values
 # - NEXT_PUBLIC_TENANT_APP_API_URL (backend URL)
 # - NEXT_PUBLIC_TENANT_APP_API_KEY (API key from backend)
-# - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY (Clerk public key)
-# - CLERK_SECRET_KEY (Clerk secret key)
+# - NEXT_PUBLIC_SUPABASE_URL (Supabase project URL)
+# - NEXT_PUBLIC_SUPABASE_ANON_KEY (Supabase anon key)
 
 # Run development server
 npm run dev
@@ -92,7 +92,7 @@ Truevow-Customer-Portal/
 │   └── api/
 │       └── tenant-app-client.ts  # API client for backend
 ├── components/                    # Reusable components (future)
-├── middleware.ts                  # Clerk authentication middleware
+├── middleware.ts                  # Supabase authentication middleware
 ├── package.json
 ├── tsconfig.json
 ├── tailwind.config.ts

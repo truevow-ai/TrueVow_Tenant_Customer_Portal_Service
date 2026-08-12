@@ -2,10 +2,11 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  output: 'standalone',
 
   // Transpile shared packages that export raw TypeScript
   transpilePackages: [
-    '@truevow/auth-client',
+    '@truevow/auth',
     '@truevow/rbac-engine',
   ],
 

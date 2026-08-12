@@ -289,9 +289,9 @@ GET /api/v1/tenants/{tenantId}/notifications
 // Returns: { notifications: [...] }
 ```
 
-### **Clerk Authentication:**
-- ✅ User profile data from Clerk
-- ✅ Password management via Clerk
+### **Supabase Authentication (via @truevow/auth):**
+- ✅ User profile data from Supabase
+- ✅ Password management via Supabase Auth
 - ✅ Session management
 - ✅ User button in sidebar
 

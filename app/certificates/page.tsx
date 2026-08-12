@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@clerk/nextjs'
+import { useAuth } from '@truevow/auth'
 import { Card } from '@/components/ui/card'
 import { CertificateBadge } from '@/components/certificates/CertificateBadge'
 import { getCertificates, type Certificate } from '@/lib/api/certificates'
@@ -32,15 +32,14 @@ export default function CertificatesPage() {
     loadCertificates()
   }, [currentPage, filters])
 
-  const { getToken } = useAuth()
+  const { session } = useAuth()
 
   async function loadCertificates() {
     setLoading(true)
     setError(null)
     try {
-      // Get token from Clerk (client-side)
-      const token = await getToken()
-      
+      const token = session?.access_token
+
       if (!token) {
         throw new Error('Not authenticated')
       }

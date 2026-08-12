@@ -1,20 +1,20 @@
 /**
  * Tenant Context Hook
  * 
- * Resolves tenant_id from Clerk authentication session.
+ * Resolves tenant_id from Supabase Auth session user_metadata.
  * 
  * Architecture:
- * - Production: tenant_id comes from Clerk user's publicMetadata
- * - Development/Testing: Can use DEV_TENANT_ID env var when auth is bypassed
+ * - Production: tenant_id comes from Supabase user's user_metadata
+ * - Development: DEV_TENANT_ID env var may be used ONLY when NODE_ENV !== production
  * 
- * Clerk Setup:
- * When a tenant is created, set their tenant_id in Clerk:
- *   await clerkClient.users.updateUserMetadata(userId, {
- *     publicMetadata: { tenantId: 'uuid-here' }
+ * Supabase Setup:
+ * When a tenant is created, set their tenant_id via auth.admin.updateUserById:
+ *   await supabaseAdmin.auth.admin.updateUserById(userId, {
+ *     user_metadata: { tenantId: 'uuid-here', role: 'admin' }
  *   });
  */
 
-import { useAuth, useUser } from '@clerk/nextjs';
+import { useAuth, useUser } from '@truevow/auth';
 
 // =============================================================================
 // TYPES
@@ -35,25 +35,24 @@ export interface TenantContext {
 // =============================================================================
 
 /**
- * Hook to get the current tenant context from Clerk authentication
- * 
- * Usage:
- *   const { tenantId, isLoading, error } = useTenant();
- *   
- *   if (isLoading) return <Loading />;
- *   if (!tenantId) return <NoTenantState />;
- *   
- *   // Use tenantId for API calls
- *   const data = await fetchData(tenantId);
+ * Hook to get the current tenant context from Supabase Auth session
  */
 export function useTenant(): TenantContext {
-  const { isLoaded: authLoaded, isSignedIn, userId } = useAuth();
-  const { user, isLoaded: userLoaded } = useUser();
+  const { user, loading } = useUser();
 
-  const isLoading = !authLoaded || !userLoaded;
+  if (loading) {
+    return {
+      tenantId: null,
+      userId: null,
+      userEmail: null,
+      userName: null,
+      isLoading: true,
+      isAuthenticated: false,
+      error: null,
+    };
+  }
 
-  // Not authenticated
-  if (!isLoading && !isSignedIn) {
+  if (!user) {
     return {
       tenantId: null,
       userId: null,
@@ -65,28 +64,22 @@ export function useTenant(): TenantContext {
     };
   }
 
-  // Still loading
-  if (isLoading) {
-    return {
-      tenantId: null,
-      userId: userId || null,
-      userEmail: null,
-      userName: null,
-      isLoading: true,
-      isAuthenticated: false,
-      error: null,
-    };
-  }
+  const devTenantId =
+    process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_DEV_TENANT_ID
+      ? process.env.NEXT_PUBLIC_DEV_TENANT_ID
+      : null;
 
-  // Authenticated - get tenant_id from publicMetadata
-  const tenantId = (user?.publicMetadata?.tenantId as string) || process.env.NEXT_PUBLIC_DEV_TENANT_ID || null;
-  const userEmail = user?.primaryEmailAddress?.emailAddress || null;
-  const userName = user?.fullName || null;
+  const tenantId =
+    (user.user_metadata?.tenantId as string) ||
+    devTenantId ||
+    null;
+  const userEmail = user.email || null;
+  const userName = user.user_metadata?.full_name || user.email || null;
 
   if (!tenantId) {
     return {
       tenantId: null,
-      userId: userId || null,
+      userId: user.id || null,
       userEmail,
       userName,
       isLoading: false,
@@ -97,7 +90,7 @@ export function useTenant(): TenantContext {
 
   return {
     tenantId,
-    userId: userId || null,
+    userId: user.id || null,
     userEmail,
     userName,
     isLoading: false,
@@ -110,26 +103,10 @@ export function useTenant(): TenantContext {
 // DEVELOPMENT FALLBACK HOOK
 // =============================================================================
 
-/**
- * Development hook that falls back to DEV_TENANT_ID when Clerk auth is bypassed
- * 
- * IMPORTANT: This is for development/testing ONLY.
- * In production, tenant_id MUST come from Clerk publicMetadata.
- * 
- * Usage:
- *   const { tenantId, isLoading, error } = useTenantDev();
- */
 export function useTenantDev(): TenantContext {
-  const { isLoaded: authLoaded, isSignedIn, userId } = useAuth();
-  const { user, isLoaded: userLoaded } = useUser();
+  const { user, loading } = useUser();
 
-  const isLoading = !authLoaded || !userLoaded;
-
-  // Development fallback - check if auth is bypassed (no user but page loads)
-  const devTenantId = process.env.NEXT_PUBLIC_DEV_TENANT_ID || null;
-
-  // Still loading
-  if (isLoading) {
+  if (loading) {
     return {
       tenantId: null,
       userId: null,
@@ -141,29 +118,21 @@ export function useTenantDev(): TenantContext {
     };
   }
 
-  // Authenticated - get tenant_id from publicMetadata
-  if (isSignedIn && user) {
-    const tenantId = (user.publicMetadata?.tenantId as string) || null;
-    const userEmail = user.primaryEmailAddress?.emailAddress || null;
-    const userName = user.fullName || null;
+  const devTenantId =
+    process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_DEV_TENANT_ID
+      ? process.env.NEXT_PUBLIC_DEV_TENANT_ID
+      : null;
+
+  if (user) {
+    const tenantId =
+      (user.user_metadata?.tenantId as string) || devTenantId || null;
+    const userEmail = user.email || null;
+    const userName = user.user_metadata?.full_name || user.email || null;
 
     if (!tenantId) {
-      // Dev fallback: use DEV_TENANT_ID when Clerk user has no tenant assignment
-      if (devTenantId) {
-        console.warn('[useTenantDev] User has no tenant in Clerk — using DEV_TENANT_ID fallback');
-        return {
-          tenantId: devTenantId,
-          userId: userId || null,
-          userEmail,
-          userName,
-          isLoading: false,
-          isAuthenticated: true,
-          error: null,
-        };
-      }
       return {
         tenantId: null,
-        userId: userId || null,
+        userId: user.id,
         userEmail,
         userName,
         isLoading: false,
@@ -174,7 +143,7 @@ export function useTenantDev(): TenantContext {
 
     return {
       tenantId,
-      userId: userId || null,
+      userId: user.id,
       userEmail,
       userName,
       isLoading: false,
@@ -183,7 +152,6 @@ export function useTenantDev(): TenantContext {
     };
   }
 
-  // Not authenticated - use development fallback if available
   if (devTenantId) {
     console.warn('[useTenantDev] Using DEV_TENANT_ID fallback - NOT FOR PRODUCTION');
     return {
@@ -192,12 +160,11 @@ export function useTenantDev(): TenantContext {
       userEmail: 'dev@example.com',
       userName: 'Development User',
       isLoading: false,
-      isAuthenticated: false, // Not actually authenticated
+      isAuthenticated: false,
       error: null,
     };
   }
 
-  // No auth, no fallback
   return {
     tenantId: null,
     userId: null,

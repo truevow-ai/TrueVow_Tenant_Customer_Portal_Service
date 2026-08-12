@@ -1,16 +1,13 @@
 /**
  * DRAFT Service API Client
- * Connects to Tenant Application which proxies to DRAFT Service
  * 
- * IMPORTANT: tenant_id MUST be passed to each method - no hardcoded defaults
- * All data flows from authenticated session or environment config.
+ * All calls proxy through the Portal's server-side route (/api/draft/...)
+ * so the Tenant App API key never reaches the browser.
  */
 
 import axios, { AxiosInstance } from "axios";
 
-const TENANT_APP_URL =
-  process.env.NEXT_PUBLIC_TENANT_APP_API_URL || "http://localhost:8000";
-const TENANT_APP_API_KEY = process.env.NEXT_PUBLIC_TENANT_APP_API_KEY || "";
+const DRAFT_PROXY_BASE = "/api/draft";
 
 export interface ValidationRule {
   id: string;
@@ -119,18 +116,14 @@ class DraftClient {
   private serviceClient: AxiosInstance;
 
   constructor() {
-    const headers = {
-      "Content-Type": "application/json",
-      ...(TENANT_APP_API_KEY && { "X-API-Key": TENANT_APP_API_KEY }),
-    };
     this.client = axios.create({
-      baseURL: `${TENANT_APP_URL}/api/v1/draft`,
-      headers,
+      baseURL: `${DRAFT_PROXY_BASE}/api/v1/draft`,
+      headers: { "Content-Type": "application/json" },
       timeout: 30000,
     });
     this.serviceClient = axios.create({
-      baseURL: `${TENANT_APP_URL}/api/v1`,
-      headers,
+      baseURL: `${DRAFT_PROXY_BASE}/api/v1`,
+      headers: { "Content-Type": "application/json" },
       timeout: 30000,
     });
   }

@@ -1,65 +1,71 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-import { NextResponse } from 'next/server';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from 'next/server';
 
-// Define public routes that don't require authentication
-const isPublicRoute = createRouteMatcher([
-  '/',
-  '/pricing',
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-  '/forgot-password(.*)',
-]);
+const isPublicRoute = (pathname: string) =>
+  pathname === '/' ||
+  pathname.startsWith('/pricing') ||
+  pathname.startsWith('/sign-in') ||
+  pathname.startsWith('/sign-up') ||
+  pathname.startsWith('/forgot-password');
 
-// API routes that are intentionally public
-const isPublicApi = createRouteMatcher([
-  '/api/public/(.*)',
-  '/api/webhook/(.*)',
-  '/api/trace/(.*)',
-  '/api/intake/(.*)',
-  '/api/retainer/(.*)',
-]);
+const isPublicApi = (pathname: string) =>
+  pathname.startsWith('/api/public/') ||
+  pathname.startsWith('/api/webhook/') ||
+  pathname.startsWith('/api/trace/') ||
+  pathname.startsWith('/api/intake/') ||
+  pathname.startsWith('/api/retainer/');
 
-export default clerkMiddleware((auth, req) => {
-  const { userId } = auth();
+export async function middleware(request: NextRequest) {
+  const { pathname, searchParams } = request.nextUrl;
 
-  // Preview bypass: add ?preview=bypass to any URL to skip auth in dev
-  const isPreviewBypass = req.nextUrl.searchParams.get('preview') === 'bypass';
+  const isPreviewBypass = searchParams.get('preview') === 'bypass';
   if (isPreviewBypass) {
     const response = NextResponse.next();
-    response.headers.set('x-pathname', req.nextUrl.pathname);
+    response.headers.set('x-pathname', pathname);
     return response;
   }
 
-  // Allow public routes without authentication
-  if (isPublicRoute(req)) {
+  if (isPublicRoute(pathname) || isPublicApi(pathname)) {
     const response = NextResponse.next();
-    response.headers.set('x-pathname', req.nextUrl.pathname);
+    response.headers.set('x-pathname', pathname);
     return response;
   }
 
-  // Allow public API routes (webhooks, public endpoints)
-  if (isPublicApi(req)) {
-    const response = NextResponse.next();
-    response.headers.set('x-pathname', req.nextUrl.pathname);
-    return response;
-  }
+  let supabaseResponse = NextResponse.next({ request });
 
-  // Require authentication for all other routes (including API)
-  if (!userId) {
-    // API routes return 401 JSON, page routes redirect to sign-in
-    if (req.nextUrl.pathname.startsWith('/api/')) {
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
-    const signInUrl = new URL('/sign-in', req.url);
-    signInUrl.searchParams.set('redirect_url', req.url);
+    const signInUrl = new URL('/sign-in', request.url);
+    signInUrl.searchParams.set('redirect_url', request.url);
     return NextResponse.redirect(signInUrl);
   }
 
-  // Add pathname header for layout to use
-  const response = NextResponse.next();
-  response.headers.set('x-pathname', req.nextUrl.pathname);
-  return response;
-});
+  supabaseResponse.headers.set('x-pathname', pathname);
+  return supabaseResponse;
+}
 
 export const config = {
   matcher: ['/((?!.+\.[\w]+$|_next).*)', '/', '/(api|trpc)(.*)'],

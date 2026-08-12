@@ -1,7 +1,9 @@
 'use client';
-import { SignOutButton } from '@clerk/nextjs';
+import { useAuth } from '@truevow/auth';
 
 export default function NoTenantPage() {
+  const { signOut } = useAuth();
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
@@ -37,11 +39,12 @@ export default function NoTenantPage() {
             Contact Support
           </a>
           
-          <SignOutButton redirectUrl="/sign-in">
-            <button className="block w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-              Sign Out
-            </button>
-          </SignOutButton>
+          <button
+            onClick={() => signOut()}
+            className="block w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Sign Out
+          </button>
         </div>
       </div>
     </div>

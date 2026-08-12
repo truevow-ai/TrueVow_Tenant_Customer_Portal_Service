@@ -1,11 +1,11 @@
 /**
  * Proxy: POST /api/cs-support/tickets/[id]/reply
  * Customer sends a reply to an existing support ticket.
- * customer_email resolved from Clerk session.
+ * customer_email resolved from Supabase session.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs/server';
+import { verifySupabaseJwt } from '@truevow/auth';
 
 const FLS_BASE = process.env.CUSTOMER_FIRST_LINE_SUPPORT_SERVICE_URL || 'http://localhost:3066';
 const FLS_API_KEY = process.env.CUSTOMER_FIRST_LINE_SUPPORT_SERVICE_API_KEY || '';
@@ -16,10 +16,13 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
-    const user = await currentUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const ctx = await verifySupabaseJwt(token);
+    if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const customerEmail = user.emailAddresses[0]?.emailAddress;
+    const customerEmail = ctx.email;
     if (!customerEmail) return NextResponse.json({ error: 'No email on account' }, { status: 400 });
 
     const body = await request.json();

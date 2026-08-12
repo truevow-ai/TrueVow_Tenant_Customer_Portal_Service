@@ -84,14 +84,13 @@ export class TenantAppClient {
 
   constructor() {
     this.baseUrl = process.env.NEXT_PUBLIC_TENANT_APP_API_URL || 'http://localhost:8000';
-    this.apiKey = process.env.NEXT_PUBLIC_TENANT_APP_API_KEY || '';
+    this.apiKey = '';
 
     this.client = axios.create({
       baseURL: this.baseUrl,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': this.apiKey,
       },
     });
 

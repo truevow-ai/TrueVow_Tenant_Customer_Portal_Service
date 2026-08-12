@@ -1,11 +1,11 @@
 /**
  * API Route: GET /api/intake/transcriptions/[callSid]
  * 
- * Fetches call transcription by call_sid
+ * Proxies to INTAKE Tenant App API — no direct DB access.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { tenantDb } from '@/lib/db/tenant-db';
+import { getTranscription } from '@/lib/api/intake-client';
 
 export async function GET(
   request: NextRequest,
@@ -14,12 +14,12 @@ export async function GET(
   try {
     const { callSid } = await params;
     
-    const transcription = await tenantDb.getTranscriptionByCallSid(callSid);
+    const transcription = await getTranscription(callSid);
 
     if (!transcription) {
       return NextResponse.json(
-        { error: 'Transcription not found' },
-        { status: 404 }
+        { error: 'Transcription not available — INTAKE projection API unreachable' },
+        { status: 503 }
       );
     }
 
@@ -27,8 +27,8 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching transcription:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch transcription', details: String(error) },
-      { status: 500 }
+      { error: 'Transcription service unavailable' },
+      { status: 503 }
     );
   }
 }

@@ -1,14 +1,14 @@
 /**
  * Auth Guard — RBAC middleware for Customer Portal API routes
  *
- * Delegates to @truevow/rbac-engine and @truevow/auth-client for
+ * Uses @truevow/auth (Supabase JWT verification) and @truevow/rbac-engine for
  * centralized role hierarchy, permissions, and domain enforcement.
  *
  * Backward-compatible API surface: withAuth, withPermission, withLevel, withTenantScope
  */
 
-import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
+import { verifySupabaseJwt } from "@truevow/auth";
 import {
   RoleLevel,
   Permission,
@@ -18,17 +18,12 @@ import {
   isRoleHigherOrEqual,
   type RoleDefinition,
 } from "@truevow/rbac-engine";
-import {
-  createAuthClient,
-  ClerkDomain,
-  type AuthenticatedUser,
-} from "@truevow/auth-client";
 
 // --- Re-exports for backward compatibility ---
 export { RoleLevel, Permission, ROLE_REGISTRY };
 export type { RoleDefinition };
 
-// --- RBAC Context (extended with domain info) ---
+// --- RBAC Context ---
 
 export interface RBACContext {
   userId: string;
@@ -43,18 +38,23 @@ export type ApiHandler = (req: NextRequest, ctx: RBACContext) => Promise<NextRes
 
 // --- Core guard functions ---
 
-function resolveRoleId(clerkRole: string | undefined): string {
-  if (!clerkRole) return "CLIENT";
-  const upper = clerkRole.toUpperCase().replace(/\s+/g, "_");
+function resolveRoleId(metadataRole: string | undefined): string {
+  if (!metadataRole) return "CLIENT";
+  const upper = metadataRole.toUpperCase().replace(/\s+/g, "_");
   const role = getRoleById(upper);
   return role ? upper : "CLIENT";
 }
 
-async function getRBACContext(): Promise<RBACContext | null> {
-  const { userId, sessionClaims } = await auth();
-  if (!userId) return null;
+async function getRBACContext(req: NextRequest): Promise<RBACContext | null> {
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) return null;
 
-  const metadata = (sessionClaims?.publicMetadata ?? {}) as Record<string, unknown>;
+  const token = authHeader.slice(7);
+  const ctx = await verifySupabaseJwt(token);
+  if (!ctx) return null;
+
+  const userId = ctx.sub;
+  const metadata = (ctx as any).user_metadata ?? {};
   const roleId = resolveRoleId(metadata.role as string | undefined);
   const roleDef = getRoleById(roleId) ?? getRoleById("CLIENT")!;
   const tenantId = (metadata.tenantId as string) ?? null;
@@ -70,14 +70,14 @@ async function getRBACContext(): Promise<RBACContext | null> {
 }
 
 function hasPermission(roleId: string, permission: Permission, domain?: string): boolean {
-  return rbacHasPermission(roleId, permission, domain as ClerkDomain | undefined);
+  return rbacHasPermission(roleId, permission, domain as any);
 }
 
 // --- Higher-order route wrappers ---
 
 export function withAuth(handler: ApiHandler) {
   return async (req: NextRequest): Promise<NextResponse> => {
-    const ctx = await getRBACContext();
+    const ctx = await getRBACContext(req);
     if (!ctx) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
@@ -87,11 +87,11 @@ export function withAuth(handler: ApiHandler) {
 
 export function withPermission(permission: Permission, handler: ApiHandler) {
   return async (req: NextRequest): Promise<NextResponse> => {
-    const ctx = await getRBACContext();
+    const ctx = await getRBACContext(req);
     if (!ctx) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
-    if (!rbacHasPermission(ctx.roleId, permission, ctx.domain as ClerkDomain | undefined)) {
+    if (!rbacHasPermission(ctx.roleId, permission, ctx.domain as any)) {
       return NextResponse.json(
         {
           error: "Insufficient permissions",
@@ -107,7 +107,7 @@ export function withPermission(permission: Permission, handler: ApiHandler) {
 
 export function withLevel(minLevel: RoleLevel, handler: ApiHandler) {
   return async (req: NextRequest): Promise<NextResponse> => {
-    const ctx = await getRBACContext();
+    const ctx = await getRBACContext(req);
     if (!ctx) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
@@ -129,7 +129,7 @@ export function withTenantScope(
   handler: (req: NextRequest, ctx: RBACContext) => Promise<NextResponse>
 ) {
   return async (req: NextRequest): Promise<NextResponse> => {
-    const ctx = await getRBACContext();
+    const ctx = await getRBACContext(req);
     if (!ctx) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
@@ -147,12 +147,6 @@ export function withTenantScope(
 
     return handler(req, ctx);
   };
-}
-
-// --- Domain-aware auth client factory ---
-
-export function getAuthClient() {
-  return createAuthClient("customer-portal");
 }
 
 export { getRBACContext, hasPermission };

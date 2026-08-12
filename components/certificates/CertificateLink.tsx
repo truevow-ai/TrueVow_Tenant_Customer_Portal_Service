@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@clerk/nextjs'
+import { useAuth } from '@truevow/auth'
 import { CertificateBadge } from './CertificateBadge'
 import { getCertificateByInteraction } from '@/lib/api/certificates'
 import { Shield } from 'lucide-react'
@@ -23,7 +23,7 @@ export function CertificateLink({
   interactionId,
   className = ''
 }: CertificateLinkProps) {
-  const { getToken } = useAuth()
+  const { session } = useAuth()
   const [certificate, setCertificate] = useState<{ certificate_ref: string; status: string } | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -34,9 +34,8 @@ export function CertificateLink({
   async function loadCertificate() {
     setLoading(true)
     try {
-      // Get token from Clerk (client-side)
-      const token = await getToken()
-      
+      const token = session?.access_token
+
       if (!token) {
         setLoading(false)
         return

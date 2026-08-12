@@ -5,6 +5,10 @@
  * Eliminates CORS failures — the billing service only receives server-to-server
  * requests; the API key never reaches the browser.
  *
+ * FAIL-CLOSED: When Billing is unreachable, returns 503 with explicit
+ * "_service_unavailable" — never fabricates "all features enabled."
+ * The frontend must handle the unavailable state, not assume entitlement.
+ *
  * Called by: hooks/useFeatureAccess.tsx
  * Query params:
  *   tenantId  (required)
@@ -40,10 +44,9 @@ export async function GET(request: NextRequest) {
 
     if (!res.ok) {
       console.warn(`[billing/feature-access] upstream ${res.status} for tenant ${tenantId}`);
-      // Return empty feature-access shape so the portal falls back gracefully
       return NextResponse.json(
-        { error: `Billing service returned ${res.status}` },
-        { status: res.status }
+        { error: `Billing service returned ${res.status}`, _service_unavailable: true },
+        { status: 503 }
       );
     }
 
@@ -53,20 +56,13 @@ export async function GET(request: NextRequest) {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    console.warn('[billing/feature-access] Billing service unreachable — falling back to all-features-enabled:', msg);
-    // Fallback: when billing service is offline, enable all features so the portal
-    // remains fully usable. The gate works correctly once billing comes back online.
-    return NextResponse.json({
-      tier: 'growth',
-      features: {
-        intake:  { enabled: true },
-        draft:   { enabled: true },
-        settle:  { enabled: true },
-        leverage: { enabled: true },
-        trace:   { enabled: true },
-        connect: { enabled: false },
+    console.warn('[billing/feature-access] Billing service unreachable:', msg);
+    return NextResponse.json(
+      {
+        error: 'Billing service unavailable',
+        _service_unavailable: true,
       },
-      _fallback: true,
-    });
+      { status: 503 }
+    );
   }
 }

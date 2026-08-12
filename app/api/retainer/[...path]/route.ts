@@ -6,7 +6,7 @@
  * Authority classes are logged as metadata only — never enforced here.
  *
  * Proxy responsibilities:
- *   - Authenticated Clerk session verification
+ *   - Authenticated Supabase session verification
  *   - Tenant membership verification
  *   - Allowlisted route + method
  *   - Request size limits
@@ -18,7 +18,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { verifySupabaseJwt } from '@truevow/auth';
 import { isRouteAllowed } from '@/lib/api/retainer/queries';
 import { mapRetainerError } from '@/lib/api/retainer/errors';
 
@@ -42,14 +42,20 @@ export async function DELETE(req: NextRequest, ctx: any) {
 }
 
 async function handle(req: NextRequest, ctx: any) {
-  // ---- 1. Clerk session verification ----
-  const { userId, sessionClaims } = await auth();
-  if (!userId) {
+  // ---- 1. Supabase JWT verification ----
+  const authHeader = req.headers.get('authorization');
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
+  const jwtCtx = await verifySupabaseJwt(token);
+  if (!jwtCtx) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
+  const userId = jwtCtx.sub;
 
   // ---- 2. Tenant membership verification ----
-  const metadata = (sessionClaims?.publicMetadata ?? {}) as Record<string, unknown>;
+  const metadata = (jwtCtx as any).user_metadata ?? {};
   const sessionTenantId = (metadata.tenantId as string) ?? null;
   if (!sessionTenantId) {
     return NextResponse.json(

@@ -58,7 +58,7 @@ export default function TeamPage() {
       setError(null);
 
       try {
-        // Fetch team members from Clerk API
+        // Fetch team members from Supabase API
         const response = await fetch('/api/team/invite');
         
         if (!response.ok) {

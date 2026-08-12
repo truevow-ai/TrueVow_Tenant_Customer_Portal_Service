@@ -9,12 +9,12 @@
 
 const DRAFT_SERVICE_URL =
   process.env.DRAFT_SERVICE_URL ||
-  process.env.NEXT_PUBLIC_TENANT_APP_API_URL ||
+  process.env.TENANT_APP_URL ||
   'http://localhost:8001';
 
 const DRAFT_SERVICE_KEY =
   process.env.DRAFT_SERVICE_API_KEY ||
-  process.env.NEXT_PUBLIC_TENANT_APP_API_KEY ||
+  process.env.TENANT_APP_API_KEY ||
   '';
 
 export async function GET(req: NextRequest) {

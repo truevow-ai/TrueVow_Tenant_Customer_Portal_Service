@@ -1,0 +1,38 @@
+app = "truevow-customer-portal"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "3031"
+  NODE_ENV = "production"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 3031
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+    force_https = true
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
+
+[mounts]
+  source = "truevow_portal_data"
+  destination = "/app/data"

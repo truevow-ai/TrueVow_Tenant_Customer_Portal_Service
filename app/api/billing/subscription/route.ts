@@ -2,7 +2,7 @@
  * Billing Subscription Management Proxy Route
  *
  * Server-side proxy for subscription tier changes and cancellations.
- * NOW PROTECTED: Requires Clerk authentication + RBAC billing permission.
+ * NOW PROTECTED: Requires Supabase authentication + RBAC billing permission.
  *
  * PUT    /api/billing/subscription  → Change tier (upgrade/downgrade) for active subscriptions
  * DELETE /api/billing/subscription  → Cancel subscription

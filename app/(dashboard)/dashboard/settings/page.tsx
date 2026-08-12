@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { User, Lock, Bell, Key, Building2, Loader2, AlertCircle, Phone, FileText, Clock, MessageCircle, PhoneForwarded, Plus, X, ChevronDown, Pencil, ArrowRight, CheckCircle2, RefreshCw } from 'lucide-react';
 import { US_COUNTIES } from '@/lib/utils/us-counties';
 import Link from 'next/link';
-import { useClerk, useUser } from '@clerk/nextjs';
+import { useUser } from '@truevow/auth';
 import { useTenantDev } from '@/hooks/useTenant';
 import { Events } from '@/lib/analytics/events';
 
@@ -184,12 +184,11 @@ function formatPhone(raw: string): string {
 
 export default function SettingsPage() {
   const { tenantId, isLoading: tenantLoading, error: tenantError } = useTenantDev();
-  const { openUserProfile } = useClerk();
-  const { user: clerkUser } = useUser();
-  // Clerk is the authoritative source for identity — always visible, never empty
-  const clerkEmail     = clerkUser?.emailAddresses[0]?.emailAddress || '';
-  const clerkFirstName = clerkUser?.firstName || '';
-  const clerkLastName  = clerkUser?.lastName  || '';
+  const { user: authUser } = useUser();
+  // Supabase Auth is the authoritative source for identity
+  const authEmail     = authUser?.email || '';
+  const authFirstName = authUser?.user_metadata?.full_name?.split(' ')[0] || '';
+  const authLastName  = authUser?.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
@@ -272,11 +271,11 @@ export default function SettingsPage() {
           // ── Build profile ──────────────────────────────────────────────────
           const p: UserProfile = {
             id:        tenantId,
-            firstName: data.firstName || clerkFirstName,
-            lastName:  data.lastName  || clerkLastName,
-            fullName:  `${data.firstName || clerkFirstName} ${data.lastName || clerkLastName}`.trim(),
-            // Clerk is the authoritative source for email — always show it
-            email:     clerkEmail || data.email || '',
+            firstName: data.firstName || authFirstName,
+            lastName:  data.lastName  || authLastName,
+            fullName:  `${data.firstName || authFirstName} ${data.lastName || authLastName}`.trim(),
+            // Auth provider is the authoritative source for email — always show it
+            email:     authEmail || data.email || '',
             phone:     data.phone || '',
             whatsApp:  data.whatsapp || '',
           };
@@ -335,7 +334,7 @@ export default function SettingsPage() {
           const cachedProfile = localStorage.getItem('tv_settings_profile');
           setFirmInfo(cachedFirm    ? JSON.parse(cachedFirm)    : EMPTY_FIRM);
           setSavedFirmInfo(cachedFirm ? JSON.parse(cachedFirm) : EMPTY_FIRM);
-          const emptyP = { id: tenantId, firstName: clerkFirstName, lastName: clerkLastName, fullName: `${clerkFirstName} ${clerkLastName}`.trim(), email: clerkEmail, phone: '', whatsApp: '' };
+          const emptyP = { id: tenantId, firstName: authFirstName, lastName: authLastName, fullName: `${authFirstName} ${authLastName}`.trim(), email: authEmail, phone: '', whatsApp: '' };
           setProfile(cachedProfile    ? JSON.parse(cachedProfile)    : emptyP);
           setSavedProfile(cachedProfile ? JSON.parse(cachedProfile) : emptyP);
         }
@@ -802,8 +801,8 @@ export default function SettingsPage() {
               </div>
               <div className="md:col-span-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Billing / Invoice Email</p>
-                <p className="text-sm text-card-foreground">{firmInfo?.billingEmail || clerkEmail || '—'}</p>
-                {!firmInfo?.billingEmail && clerkEmail && (
+                <p className="text-sm text-card-foreground">{firmInfo?.billingEmail || authEmail || '—'}</p>
+                {!firmInfo?.billingEmail && authEmail && (
                   <p className="text-xs text-muted-foreground mt-0.5">Using your login email as default.</p>
                 )}
               </div>
@@ -1056,7 +1055,7 @@ export default function SettingsPage() {
                 value={firmInfo?.billingEmail || ''}
                 onChange={(e) => setFirmInfo(prev => ({ ...(prev ?? EMPTY_FIRM), billingEmail: e.target.value }))}
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 bg-white dark:bg-gray-800 text-card-foreground focus:border-primary-500"
-                placeholder={clerkEmail || 'billing@lawfirm.com'}
+                placeholder={authEmail || 'billing@lawfirm.com'}
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Where TrueVow sends invoices and billing notices. Leave blank to use your login email.
@@ -1457,13 +1456,12 @@ export default function SettingsPage() {
               Password changes and account security are managed through your TrueVow account portal.
               Two-factor authentication and active session management are also available there.
             </p>
-            <button
-              type="button"
-              onClick={() => openUserProfile()}
+            <Link
+              href="/dashboard/settings"
               className="flex items-center justify-center gap-2 w-full rounded-lg border border-border px-4 py-2 text-sm font-medium text-card-foreground hover:bg-muted transition-colors"
             >
               Manage Account <ArrowRight className="h-4 w-4" />
-            </button>
+            </Link>
           </div>
         </div>
 

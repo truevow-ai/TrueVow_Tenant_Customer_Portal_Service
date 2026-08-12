@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Stethoscope, FileText, Clock, CheckCircle, ArrowRight, Upload, Users, FileCheck, AlertCircle } from 'lucide-react';
-import { useUser } from '@clerk/nextjs';
+import { useUser } from '@truevow/auth';
 import { traceClient, TraceCase, TraceStats } from '@/lib/api/trace-client';
 
 const STAGE_ORDER = [

@@ -194,7 +194,7 @@ Error: 'authMiddleware' is not exported from '@clerk/nextjs'
 ## 🎯 Next Steps
 
 ### **Immediate Priorities:**
-1. Fix middleware/Clerk authentication issue
+1. Auth migration (Clerk → @truevow/auth) — complete
 2. Implement Platform Service subscription endpoint
 3. Complete CONNECT backend API
 4. Add subscription caching to improve performance

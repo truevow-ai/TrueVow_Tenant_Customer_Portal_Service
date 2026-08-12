@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useAuth } from '@clerk/nextjs'
+import { useAuth } from '@truevow/auth'
 import { Card } from '@/components/ui/card'
 import { CertificateBadge } from '@/components/certificates/CertificateBadge'
 import { getCertificate, type Certificate } from '@/lib/api/certificates'
@@ -22,7 +22,7 @@ import {
 export default function CertificateDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { getToken } = useAuth()
+  const { session } = useAuth()
   const certificateRef = params.certificateRef as string
   const [certificate, setCertificate] = useState<Certificate | null>(null)
   const [loading, setLoading] = useState(true)
@@ -39,9 +39,8 @@ export default function CertificateDetailPage() {
     setLoading(true)
     setError(null)
     try {
-      // Get token from Clerk (client-side)
-      const token = await getToken()
-      
+      const token = session?.access_token
+
       if (!token) {
         throw new Error('Not authenticated')
       }

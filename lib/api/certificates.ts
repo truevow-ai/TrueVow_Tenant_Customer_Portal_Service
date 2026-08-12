@@ -2,11 +2,13 @@
  * TrueVow Customer Portal - Certificate API Client
  * 
  * Fetches blockchain certificates from Tenant App API
- * Uses Clerk JWT for authentication
+ * Uses Supabase JWT for authentication
  * 
  * Note: This client can be used both server-side and client-side.
  * For client-side, pass the token explicitly.
  */
+
+import { verifySupabaseJwt } from '@truevow/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_TENANT_APP_API_URL || 'https://api.truevow.law'
 
@@ -33,11 +35,12 @@ export interface CertificateListResponse {
   offset: number
 }
 
+function requireToken(authToken: string | undefined): asserts authToken is string {
+  if (!authToken) throw new Error('Not authenticated - Token required')
+}
+
 /**
  * List certificates for the authenticated tenant
- * 
- * @param filters - Optional filters for certificates
- * @param token - Optional Clerk JWT token (if not provided, will be fetched server-side)
  */
 export async function getCertificates(
   filters?: {
@@ -49,26 +52,7 @@ export async function getCertificates(
   },
   token?: string
 ): Promise<CertificateListResponse> {
-  // If token not provided, try to get it server-side
-  let authToken = token;
-  if (!authToken && typeof window === 'undefined') {
-    try {
-      // Dynamic import for server-side auth
-      const clerkServer = await import(/* webpackIgnore: true */ '@clerk/nextjs/server')
-      if ('auth' in clerkServer) {
-        const authResult = await (clerkServer as any).auth()
-        if (authResult?.getToken) {
-          authToken = await authResult.getToken() ?? undefined
-        }
-      }
-    } catch (error) {
-      console.error('Error getting auth token:', error)
-    }
-  }
-
-  if (!authToken) {
-    throw new Error('Not authenticated - Token required')
-  }
+  requireToken(token)
 
   const params = new URLSearchParams()
   if (filters?.interaction_type) params.append('interaction_type', filters.interaction_type)
@@ -79,7 +63,7 @@ export async function getCertificates(
 
   const response = await fetch(`${API_BASE_URL}/api/v1/verify/certificates?${params}`, {
     headers: {
-      'Authorization': `Bearer ${authToken}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     }
   })
@@ -96,37 +80,16 @@ export async function getCertificates(
 
 /**
  * Get certificate by reference ID
- * 
- * @param certificateRef - Certificate reference (e.g., TV-2026-001234)
- * @param token - Optional Clerk JWT token (if not provided, will be fetched server-side)
  */
 export async function getCertificate(
   certificateRef: string,
   token?: string
 ): Promise<Certificate> {
-  // If token not provided, try to get it server-side
-  let authToken = token;
-  if (!authToken && typeof window === 'undefined') {
-    try {
-      const clerkServer = await import(/* webpackIgnore: true */ '@clerk/nextjs/server')
-      if ('auth' in clerkServer) {
-        const authResult = await (clerkServer as any).auth()
-        if (authResult?.getToken) {
-          authToken = await authResult.getToken() ?? undefined
-        }
-      }
-    } catch (error) {
-      console.error('Error getting auth token:', error)
-    }
-  }
-
-  if (!authToken) {
-    throw new Error('Not authenticated - Token required')
-  }
+  requireToken(token)
 
   const response = await fetch(`${API_BASE_URL}/api/v1/verify/certificates/${certificateRef}`, {
     headers: {
-      'Authorization': `Bearer ${authToken}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     }
   })
@@ -146,41 +109,19 @@ export async function getCertificate(
 
 /**
  * Get certificate by interaction type and ID
- * 
- * @param interactionType - Interaction type (e.g., prospect_journey_complete)
- * @param interactionId - Interaction ID (e.g., appointment_id, session_id)
- * @param token - Optional Clerk JWT token (if not provided, will be fetched server-side)
  */
 export async function getCertificateByInteraction(
   interactionType: string,
   interactionId: string,
   token?: string
 ): Promise<Certificate | null> {
-  // If token not provided, try to get it server-side
-  let authToken = token;
-  if (!authToken && typeof window === 'undefined') {
-    try {
-      const clerkServer = await import(/* webpackIgnore: true */ '@clerk/nextjs/server')
-      if ('auth' in clerkServer) {
-        const authResult = await (clerkServer as any).auth()
-        if (authResult?.getToken) {
-          authToken = await authResult.getToken() ?? undefined
-        }
-      }
-    } catch (error) {
-      console.error('Error getting auth token:', error)
-    }
-  }
-
-  if (!authToken) {
-    throw new Error('Not authenticated - Token required')
-  }
+  requireToken(token)
 
   const response = await fetch(
     `${API_BASE_URL}/api/v1/verify/certificates/by-interaction/${interactionType}/${interactionId}`,
     {
       headers: {
-        'Authorization': `Bearer ${authToken}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     }
@@ -188,7 +129,7 @@ export async function getCertificateByInteraction(
 
   if (!response.ok) {
     if (response.status === 404) {
-      return null  // Certificate not found (not an error)
+      return null
     }
     if (response.status === 401) {
       throw new Error('Unauthorized - Please log in again')
@@ -198,4 +139,3 @@ export async function getCertificateByInteraction(
 
   return response.json()
 }
-

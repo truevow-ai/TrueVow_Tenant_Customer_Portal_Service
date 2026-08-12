@@ -9,15 +9,6 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { useTenantDev } from './useTenant';
 import type { FeatureAccessResponse, Tier } from '@/lib/billing/client';
 
-// Fetch feature-access through the Next.js server-side proxy (avoids browser CORS)
-async function fetchFeatureAccessProxy(tenantId: string, userId?: string): Promise<FeatureAccessResponse> {
-  const params = new URLSearchParams({ tenantId });
-  if (userId) params.set('userId', userId);
-  const res = await fetch(`/api/billing/feature-access?${params}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`feature-access proxy returned ${res.status}`);
-  return res.json();
-}
-
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -59,11 +50,22 @@ export function FeatureProvider({ children }: { children: ReactNode }) {
 
       try {
         setIsLoading(true);
-        const data = await fetchFeatureAccessProxy(tenantId);
+        const qs = new URLSearchParams({ tenantId });
+        const res = await fetch(`/api/billing/feature-access?${qs}`, { cache: 'no-store' });
+        const data = await res.json();
+
+        if (!res.ok || data._service_unavailable) {
+          console.warn('[useFeatureAccess] Billing service unavailable — commercial state unknown');
+          setFeatures(null);
+          setError(data.error || 'Billing service unavailable');
+          return;
+        }
+
         setFeatures(data);
         setError(null);
       } catch (err) {
         console.error('Failed to fetch feature access:', err);
+        setError('Billing service unavailable');
       } finally {
         setIsLoading(false);
       }

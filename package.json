@@ -22,10 +22,10 @@
     "check:retainer-contract": "node scripts/generate-retainer-api.cjs --check"
   },
   "dependencies": {
-    "@clerk/nextjs": "^5.0.0",
+    "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.97.0",
     "@tanstack/react-query": "^5.0.0",
-    "@truevow/auth-client": "file:../shared-libraries/auth-client",
+    "@truevow/auth": "file:../shared-libraries/auth",
     "@truevow/rbac-engine": "file:../shared-libraries/rbac-engine",
     "axios": "^1.6.0",
     "clsx": "^2.1.0",

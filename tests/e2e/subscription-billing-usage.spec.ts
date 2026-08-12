@@ -349,7 +349,7 @@ test.describe('Billing Page — Subscription Management', () => {
     await mockFeatureAccess(page);
     await mockUsageData(page);
     await page.goto(`${BASE_URL}/dashboard/billing${AUTH_BYPASS}`, { waitUntil: 'domcontentloaded' });
-    // Wait for feature-access API call (may take time due to Clerk auth)
+    // Wait for feature-access API call
     await page.waitForTimeout(5000);
 
     // With mock returning tier: 'solo', should see Upgrade to Growth button

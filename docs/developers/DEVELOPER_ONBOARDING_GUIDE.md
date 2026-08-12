@@ -2,7 +2,7 @@
 
 **For:** Entry-level software developers joining the project  
 **Purpose:** Complete understanding of architecture, integrations, use cases, edge cases, and production troubleshooting  
-**Last Updated:** March 6, 2026
+**Last Updated:** August 4, 2026
 
 ---
 
@@ -33,8 +33,10 @@
 TrueVow Customer Portal is a **Next.js-based aggregation layer** that provides law firm attorneys with a unified dashboard to access multiple microservices:
 
 - **INTAKE** — Lead management pipeline (Benjamin AI intake engine)
-- **LEVERAGE** — Document compliance validation & deadline calculator
-- **SETTLE** — Settlement intelligence database
+- **TRACE** — Matter/evidence tracking and case management
+- **RETAINER** — Engagement management (45 endpoints, 13 workflow states)
+- **SETTLE** — Settlement intelligence database (query, analysis, carrier patterns)
+- **LEVERAGE** — Retracted (code preserved); DRAFT for basic validations
 - **Billing & Usage** — Subscription management, feature access control
 - **VERIFY** — Certificate verification system
 - **Team Management** — Staff invitations and permissions
@@ -44,7 +46,7 @@ TrueVow Customer Portal is a **Next.js-based aggregation layer** that provides l
 1. **Aggregation Layer Only** — The portal contains NO business logic. All data comes from backend microservices via API calls.
 2. **Server-Side Proxy Pattern** — All API calls go through Next.js API routes (`/api/*`) to avoid CORS and keep API keys server-side.
 3. **Feature-Gated UI** — Sidebar items show/hide based on tenant's subscription tier (fetched from Billing Service).
-4. **Clerk Authentication** — Multi-tenant auth with `tenant_id` and `user_id` passed to all backend calls.
+4. **Supabase Authentication** — Multi-tenant auth via `@truevow/auth` shared library; `tenant_id` and `user_id` passed to all backend calls.
 
 ### What Runs Where?
 
@@ -53,8 +55,10 @@ TrueVow Customer Portal is a **Next.js-based aggregation layer** that provides l
 | **Customer Portal** | 3031 | This Next.js app (frontend + API proxy) |
 | **Billing Service** | 3016 | Feature flags, subscription tiers, usage tracking |
 | **Intake Engine** | varies | Benjamin AI lead processing |
-| **LEVERAGE Service** | varies | Document validation, deadline calc |
+| **TRACE Service** | varies | Matter/evidence tracking |
+| **RETAINER Service** | varies | Engagement management (45 endpoints) |
 | **SETTLE Service** | varies | Settlement database queries |
+| **LEVERAGE Service** | varies | Retracted; DRAFT for validations |
 
 **Important:** The portal NEVER directly calls external services from the browser. Always goes through `/api/*` proxy routes.
 
@@ -69,10 +73,12 @@ TrueVow Customer Portal is a **Next.js-based aggregation layer** that provides l
   "framework": "Next.js 14.2.35 (App Router)",
   "language": "TypeScript 5.x",
   "styling": "TailwindCSS 3.x + CSS custom properties",
-  "state": "React hooks (useState, useEffect, useContext)",
-  "auth": "Clerk (@clerk/nextjs)",
+  "state": "Zustand + React Query (@tanstack/react-query)",
+  "auth": "@truevow/auth (Supabase-backed shared library)",
   "charts": "Recharts",
-  "icons": "Lucide React"
+  "icons": "Lucide React",
+  "toasts": "Sonner",
+  "dates": "date-fns"
 }
 ```
 
@@ -154,58 +160,90 @@ Truevow-Customer-Portal/
 │   │   ├── layout.tsx            # Sidebar + theme toggle + feature provider
 │   │   └── dashboard/
 │   │       ├── page.tsx          # Dashboard home (command center)
-│   │       ├── intake/           # INTAKE module
-│   │       ├── leverage/         # LEVERAGE module (case economics + validation)
-│   │       │   ├── page.tsx      # Landing (8 tool cards)
-│   │       │   ├── validate/     # Document validation
-│   │       │   ├── deadlines/    # Deadline calculator
-│   │       │   ├── history/      # Validation history
-│   │       │   ├── damages/      # Damages calculator
-│   │       │   ├── disbursement/ # Disbursement calculator
-│   │       │   ├── cases/        # Case list + lead conversion
-│   │       │   │   └── new/      # Open new case (lead pre-pop)
-│   │       │   ├── rewards/      # Reward credits
-│   │       │   └── analytics/    # Case analytics
-│   │       ├── settle/           # SETTLE module (settlement intelligence)
-│   │       ├── billing/          # Billing & usage stats
-│   │       ├── team/             # Team management
-│   │       └── settings/         # Firm settings
-│   ├── api/                      # API proxy routes (server-side only)
-│   │   ├── billing/
-│   │   ├── intake/
-│   │   ├── leverage/             # LEVERAGE service proxy routes
-│   │   │   ├── case/
-│   │   │   │   ├── open/         # Open new case
-│   │   │   │   └── [caseId]/     # Case detail, economics, damages, disbursement
-│   │   │   ├── cases/            # List cases
-│   │   │   ├── rewards/          # Rewards ledger & summary
-│   │   │   ├── analytics/        # Analytics (fallback to draft)
-│   │   │   └── deadlines/        # Upcoming deadlines (backend gap)
-│   │   └── analytics/
-│   ├── (auth)/                   # Clerk auth pages
+│   │       ├── intake/           # INTAKE module (leads, calendar)
+│   │       │   ├── lead/[id]/    # Lead detail
+│   │       │   ├── calendar/     # Calendar view
+│   │       │   └── calendar-config/
+│   │       ├── trace/            # TRACE module (matter tracking)
+│   │       │   ├── cases/        # Case list
+│   │       │   │   ├── new/      # New matter
+│   │       │   │   └── [caseId]/ # Case detail, chronology, providers
+│   │       ├── retainer/         # RETAINER module (engagement)
+│   │       │   ├── candidates/   # Candidate review
+│   │       │   ├── conflicts/    # Conflict search
+│   │       │   ├── packages/     # Fee packages
+│   │       │   └── activation/   # Activation workflow
+│   │       ├── settle/           # SETTLE module (7 pages)
+│   │       │   ├── analysis/     # Case analysis with confidence scores
+│   │       │   ├── query/        # Query with advanced filters
+│   │       │   ├── reports/      # Generate reports
+│   │       │   ├── trends/       # Settlement trends
+│   │       │   ├── contribute/   # Contribute data
+│   │       │   └── carrier-patterns/  # Carrier analytics
+│   │       ├── billing/          # Billing, usage, invoices, subscribe
+│   │       ├── team/             # Team management (invite, edit)
+│   │       ├── verify/           # Certificate verification
+│   │       ├── settings/         # Profile, password, firm info
+│   │       ├── notifications/    # Messages & notifications inbox
+│   │       └── demo/             # Toast notification demo
+│   ├── api/                      # API proxy routes (62 routes, 12 domains)
+│   │   ├── settle/               # 8 routes (analysis, quote, carrier-patterns, etc.)
+│   │   ├── intake/               # 11 routes (leads, stats, recordings, seed)
+│   │   ├── trace/                # 1 route (catch-all proxy)
+│   │   ├── retainer/             # 1 route (catch-all with 32-route allowlist)
+│   │   ├── billing/              # 6 routes (feature-access, subscription, usage, etc.)
+│   │   ├── leverage/             # 19 routes (retracted, code preserved)
+│   │   ├── team/                 # 2 routes (invite, provision-first-admin)
+│   │   ├── settings/             # 1 route (profile)
+│   │   ├── calendar/             # 2 routes (config, auto-unlock)
+│   │   ├── analytics/            # 1 route (track)
+│   │   ├── reference/            # 1 route (counties)
+│   │   ├── notifications/        # 1 route
+│   │   └── cs-support/           # 5 routes (tickets, kb)
+│   ├── (auth)/                   # Auth pages
 │   │   ├── sign-in/
-│   │   └── sign-up/
-│   ├── layout.tsx                # Root layout (Clerk provider)
+│   │   ├── sign-up/
+│   │   └── forgot-password/
+│   ├── layout.tsx                # Root layout (TrueVowAuthProvider)
 │   └── page.tsx                  # Landing page (pre-auth)
 ├── components/
 │   ├── ui/                       # Reusable UI components
 │   ├── intake/                   # INTAKE-specific components
-│   ├── connect/                  # CONNECT referral components
+│   ├── connect/                  # CONNECT referral components (retracted)
 │   └── certificates/             # VERIFY certificate components
 ├── hooks/
-│   ├── useTenant.ts              # Gets tenant_id from Clerk
-│   ├── useFeatureAccess.tsx      # Feature flag hook
-│   ├── useTheme.tsx              # Theme switcher
-│   └── useUsageStats.ts          # Usage metrics
+│   ├── useTenant.ts              # Gets tenant_id from Supabase user_metadata
+│   ├── useFeatureAccess.tsx      # Feature flag hook (6 features gated)
+│   ├── useServiceAccess.ts       # Service-level access control
+│   ├── useTheme.tsx              # Theme switcher (light/neutral/dark)
+│   └── useUsageStats.ts          # Usage metrics from Billing Service
 ├── lib/
 │   ├── api/                      # API client wrappers
-│   │   ├── draft-client.ts       # Legacy DRAFT validation client
-│   │   └── leverage-client.ts    # LEVERAGE case economics client
+│   │   ├── tenant-app-client.ts  # INTAKE (leads, stats, recordings, SMS)
+│   │   ├── settle-client.ts      # SETTLE (estimate, contribute, reports, carrier patterns)
+│   │   ├── trace-client.ts       # TRACE (cases, providers, chronology, liens)
+│   │   ├── leverage-client.ts    # LEVERAGE (retracted; 17+ methods)
+│   │   ├── draft-client.ts       # DRAFT legacy validations
+│   │   ├── connect-client.ts     # CONNECT (retracted)
+│   │   ├── verify-client.ts      # VERIFY certificates
+│   │   ├── cs-support-client.ts  # Customer support tickets
+│   │   ├── certificates.ts       # Blockchain certificates
+│   │   ├── retainer/             # RETAINER (most mature client)
+│   │   │   ├── generated/schema.ts   # 709 lines, 40+ types from Pydantic
+│   │   │   ├── client.ts             # 280 lines, 25+ typed methods
+│   │   │   ├── queries.ts            # Route allowlist (32 patterns)
+│   │   │   ├── errors.ts             # Error code → message mapping
+│   │   │   ├── mappers.ts            # Display labels & colors
+│   │   │   └── composite-views.ts    # UI projection builders
+│   │   └── intake/
+│   │       └── adapter.ts        # INTAKE→RETAINER data adapter
 │   ├── billing/
-│   │   └── client.ts             # Billing API types
+│   │   └── client.ts             # Billing API types (FeatureAccessResponse, Tier)
+│   ├── subscriptions/            # Subscription utilities
 │   ├── db/                       # Database helpers (SaaS Admin DB)
 │   └── utils.ts                  # Utility functions
 ├── .env.local                    # Environment variables (DO NOT COMMIT)
+├── opencode.json                 # 3-mode agent config (architect, coder, qa)
 ├── next.config.js                # Next.js config
 ├── tailwind.config.ts            # Tailwind theme customization
 └── tsconfig.json                 # TypeScript config
@@ -214,10 +252,11 @@ Truevow-Customer-Portal/
 ### Key Files to Read First
 
 1. **`app/(dashboard)/layout.tsx`** — Sidebar navigation, feature gating logic, idle timeout tracking
-2. **`hooks/useFeatureAccess.tsx`** — How feature flags work
-3. **`app/api/billing/feature-access/route.ts`** — API proxy pattern example
-4. **`lib/api/draft-client.ts`** — Legacy validation client (DRAFT endpoints)
-5. **`lib/api/leverage-client.ts`** — Case economics & lifecycle client (LEVERAGE endpoints)
+2. **`hooks/useFeatureAccess.tsx`** — How feature flags work (6 features: intake, leverage, settle, draft, trace, retainer)
+3. **`hooks/useTenant.ts`** — Tenant ID resolution from Supabase user_metadata
+4. **`app/api/billing/feature-access/route.ts`** — API proxy pattern example
+5. **`lib/api/settle-client.ts`** — SETTLE client with 14 types across Phases 1–4
+6. **`lib/api/retainer/client.ts`** — RETAINER client (best example of mature integration pattern)
 
 ---
 
@@ -357,7 +396,7 @@ GET  /api/v1/leverage/rewards/summary      // Reward balance summary
 
 **Route:** `/dashboard/team`
 
-**Backend Dependency:** Clerk Organizations API + SaaS Admin DB
+**Backend Dependency:** Platform Service API + SaaS Admin DB
 
 **Features:**
 - Invite staff members (paralegals, associates, admins)
@@ -377,10 +416,10 @@ GET  /api/v1/leverage/rewards/summary      // Reward balance summary
 ```mermaid
 graph TB
     A[User visits portal] --> B{Authenticated?}
-    B -->|No| C[Clerk sign-in page]
+    B -->|No| C[Supabase sign-in page]
     B -->|Yes| D[Dashboard layout loads]
     D --> E[useTenant hook fires]
-    E --> F[Get tenant_id from Clerk session]
+    E --> F[Get tenant_id from Supabase user_metadata]
     F --> G[Fetch /api/billing/feature-access]
     G --> H[Billing Service returns features]
     H --> I[Sidebar renders with gated items]
@@ -410,7 +449,7 @@ sequenceDiagram
 | Leads & Intake Sessions | SaaS Admin DB | `tenant_intake_leads_session` |
 | Feature Flags & Tiers | Billing Service DB | `tenant_subscriptions` |
 | Usage Metrics | Billing Service DB | `usage_tracking` |
-| Team Members | Clerk Organizations | `organization_memberships` |
+| Team Members | SaaS Admin DB | Via Platform Service API |
 
 **Critical Rule:** Portal NEVER queries databases directly. Always through service APIs.
 
@@ -418,21 +457,33 @@ sequenceDiagram
 
 ## 7. Authentication & Authorization
 
-### Clerk Setup
+### Supabase Auth via `@truevow/auth`
 
-**Provider:** `@clerk/nextjs`  
-**Config:** `app/layout.tsx` wraps everything in `<ClerkProvider>`
+**Provider:** `@truevow/auth` (shared library, backed by Supabase)  
+**Config:** `app/layout.tsx` wraps everything in `<TrueVowAuthProvider>`
+
+The shared auth library provides:
+- `TrueVowAuthProvider` — Auth context wrapper
+- `useUser()` — Returns `{ user, loading }` from Supabase session
+- `useAuth()` — Returns `{ signOut, signIn }` methods
 
 ### Multi-Tenant Model
 
 ```typescript
-// Every user belongs to an organization (tenant)
-interface ClerkUser {
-  id: string;              // user_abc123
-  fullName: string;        // "John Doe"
-  emailAddresses: [{emailAddress: "john@lawfirm.com"}];
-  organizationId: string;  // org_xyz789 (this is the tenant_id)
-  role: 'admin' | 'member';
+// Every user belongs to a tenant via Supabase user_metadata
+// Set during tenant creation via auth.admin.updateUserById:
+//   supabaseAdmin.auth.admin.updateUserById(userId, {
+//     user_metadata: { tenantId: 'uuid-here', role: 'admin' }
+//   });
+
+interface SupabaseUser {
+  id: string;              // UUID from Supabase Auth
+  email: string;
+  user_metadata: {
+    tenantId: string;      // This is the tenant identifier
+    full_name?: string;
+    role?: 'admin' | 'member';
+  };
 }
 ```
 
@@ -441,26 +492,40 @@ interface ClerkUser {
 **Hook:** `hooks/useTenant.ts`
 
 ```typescript
-export function useTenant() {
-  const { orgId, orgRole } = useOrganization();
-  const { user } = useUser();
-  
-  // Fallback: if no org, use user's primary org
-  const tenantId = orgId || user?.publicMetadata?.tenantId;
-  
-  return { tenantId, userId: user?.id, role: orgRole };
+export function useTenant(): TenantContext {
+  const { user, loading } = useUser();
+
+  if (!user) return { tenantId: null, isAuthenticated: false, ... };
+
+  const tenantId = user.user_metadata?.tenantId
+                || process.env.NEXT_PUBLIC_DEV_TENANT_ID
+                || null;
+
+  return {
+    tenantId,
+    userId: user.id || null,
+    userEmail: user.email || null,
+    userName: user.user_metadata?.full_name || user.email || null,
+    isLoading: false,
+    isAuthenticated: true,
+    error: null,
+  };
 }
 ```
 
 **Usage in every component:**
 ```typescript
-const { tenantId } = useTenant();
-const stats = await draftClient.getStats(tenantId); // ← Always pass tenantId
+const { tenantId, userId } = useTenant();
+const estimate = await settleClient.getEstimate(tenantId, request);
 ```
 
-### Role-Based Access
+**Dev fallback:** When `NEXT_PUBLIC_DEV_TENANT_ID` is set, `useTenantDev()` returns a fake user context for testing without live Supabase.
 
-| Role | Can Access Billing? | Can Invite Team? | Can Delete Leads? |
+### RBAC Integration
+
+The portal also integrates `@truevow/rbac-engine` (shared library) for role-based access control. Feature-level access is managed through `hasFeature()` in the feature gating system, while service-level access uses `hasServiceAccess()` in the subscriptions module.
+
+| Role | Can Access Billing? | Can Invite Team? | Can Manage Leads? |
 |------|---------------------|------------------|-------------------|
 | **Admin** | Yes | Yes | Yes |
 | **Member** | No | No | No |
@@ -480,23 +545,26 @@ const stats = await draftClient.getStats(tenantId); // ← Always pass tenantId
 {
   "tier": "growth",
   "features": {
-    "intake": { "enabled": true },
-    "draft": { "enabled": false },
-    "settle": { "enabled": true }
+    "intake":   { "enabled": true },
+    "trace":    { "enabled": true },
+    "retainer": { "enabled": false },
+    "settle":   { "enabled": true },
+    "leverage": { "enabled": false },
+    "draft":    { "enabled": false }
   }
 }
 ```
 4. **Sidebar** conditionally renders:
 ```typescript
-{hasFeature('draft') && (
-  <NavLink href="/dashboard/leverage">LEVERAGE</NavLink>
+{hasFeature('trace') && (
+  <NavLink href="/dashboard/trace">TRACE</NavLink>
 )}
 ```
 
 ### Fallback Logic
 
 **If Billing Service is unreachable:**
-- Enable ALL features (intake, draft, settle)
+- Enable ALL features (intake, trace, retainer, settle, leverage, draft)
 - Log warning: `[billing/feature-access] Billing service unreachable — falling back to all-features-enabled`
 - Add `_fallback: true` to response for debugging
 
@@ -516,17 +584,21 @@ NEXT_PUBLIC_PHASE_ONE=true  # Hides DRAFT, SETTLE, CONNECT
 ### Required Variables (.env.local)
 
 ```ini
-# Clerk Authentication (REQUIRED)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_abc123
-CLERK_SECRET_KEY=sk_test_xyz789
+# Supabase (REQUIRED)
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
 
 # Billing Service (REQUIRED for prod, optional for dev with fallback)
 TENANT_BILLING_SERVICE_URL=http://localhost:3016
 TENANT_BILLING_SERVICE_API_KEY=bill_key_abc123
 
-# Tenant App API Base (REQUIRED for LEVERAGE/INTAKE calls)
+# Tenant App API Base (REQUIRED for INTAKE/TRACE/RETAINER/SETTLE calls)
 TENANT_APP_URL=http://localhost:3031
 TENANT_APP_API_KEY=app_key_xyz789
+
+# Dev Fallback (OPTIONAL — enables testing without live auth)
+NEXT_PUBLIC_DEV_TENANT_ID=test-tenant-uuid
 
 # Analytics Service (OPTIONAL - gracefully degrades if down)
 TENANT_ANALYTICS_SERVICE_URL=http://localhost:3020
@@ -561,7 +633,7 @@ const API_URL = process.env.TENANT_BILLING_SERVICE_URL || 'http://localhost:3016
 
 ### 10.1 Authentication Edge Cases
 
-**Problem:** User switches organizations in Clerk dropdown → portal shows wrong tenant data
+**Problem:** User logs in with different tenant → portal shows wrong tenant data
 
 **Root Cause:** `useTenant()` hook cached old `orgId`
 
@@ -853,12 +925,12 @@ curl -X POST https://<LEVERAGE_HOST>/api/v1/validation/validate \
 **Severity:** CRITICAL (data isolation breach)
 
 **Immediate Action:**
-1. Disable multi-tenancy in Clerk dashboard
+1. Disable multi-tenancy in Supabase dashboard
 2. Force all users to re-login
 3. Audit logs for affected tenant IDs
 
 **Post-Mortem Questions:**
-- Was `tenantId` extracted correctly from Clerk org?
+- Was `tenantId` extracted correctly from Supabase user_metadata?
 - Did API proxy pass correct `tenant_id` to backend?
 - Any hardcoded tenant IDs in code?
 
@@ -1096,12 +1168,15 @@ git push origin main --force-with-lease
 |------|------------|
 | **Tenant** | A law firm (customer) with its own subscription and data |
 | **INTAKE** | Lead capture & management module (Benjamin AI) |
-| **LEVERAGE** | Document compliance validation tool |
-| **SETTLE** | Settlement intelligence database |
-| **Feature Flag** | Boolean toggle controlling UI visibility per tenant |
-| **SaaS Admin DB** | Central PostgreSQL DB for all tenant data |
-| **Clerk** | Third-party auth provider (multi-tenant support) |
-| **API Proxy** | Next.js route that forwards requests to backend services |
+| **TRACE** | Matter tracking, evidence management, case chronology |
+| **RETAINER** | Engagement management (45 endpoints, 13 workflow states) |
+| **LEVERAGE** | Retracted; legacy document compliance & case economics |
+| **SETTLE** | Settlement intelligence database (query, analysis, carrier patterns) |
+| **Feature Flag** | Boolean toggle controlling UI visibility per tenant (6 features) |
+| **SaaS Admin DB** | Central Supabase/PostgreSQL DB for all tenant data |
+| **@truevow/auth** | Shared auth library backed by Supabase (multi-tenant support) |
+| **@truevow/rbac-engine** | Shared RBAC library for role-based access control |
+| **API Proxy** | Next.js route that forwards requests to backend services (62 routes) |
 
 ---
 
@@ -1137,7 +1212,7 @@ npm install
 
 | Topic | Slack Channel | Person to Tag |
 |-------|---------------|---------------|
-| Authentication/Clerk | `#auth-help` | @auth-team-lead |
+| Authentication/Supabase | `#auth-help` | @auth-team-lead |
 | Backend APIs | `#backend-dev` | @backend-architect |
 | UI/UX Issues | `#frontend-dev` | @ui-tech-lead |
 | DevOps/Deployments | `#devops-support` | @devops-engineer |
@@ -1154,7 +1229,7 @@ npm install
 ## Appendix D: Further Reading
 
 - [Next.js App Router Docs](https://nextjs.org/docs/app)
-- [Clerk Multi-Tenant Guide](https://clerk.com/docs/organizations/overview)
+- [Supabase Auth Docs](https://supabase.com/docs/guides/auth)
 - [TailwindCSS Best Practices](https://tailwindcss.com/docs)
 - [WCAG 2.1 AA Contrast Requirements](https://www.w3.org/WAI/GL/wiki/Contrast_(minimum))
 

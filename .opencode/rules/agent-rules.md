@@ -55,7 +55,7 @@ These rules apply to all agents working on the TrueVow Customer Portal.
 
 ## Security Rules
 
-1. **Never commit secrets**: API keys, database URLs, Clerk keys must stay in `.env.local`
+1. **Never commit secrets**: API keys, database URLs, Supabase keys must stay in `.env.local`
 2. **No hardcoded credentials**: All sensitive data from environment variables
 3. **Input validation**: Validate all user inputs on both client and server
 

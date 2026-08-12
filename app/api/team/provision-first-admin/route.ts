@@ -2,27 +2,31 @@
  * POST /api/team/provision-first-admin
  *
  * Internal service-to-service endpoint called by SaaS Admin during
- * onboarding to create the first law firm admin user in Clerk (App 3).
+ * onboarding to create the first law firm admin user in Supabase Auth.
  *
  * Auth: X-API-Key header matching PLATFORM_SERVICE_API_KEY
- *
- * This is the ONLY place where the first admin Clerk user is created
- * programmatically. All subsequent team members are created by the
- * existing POST /api/team/invite endpoint (requires Clerk session).
  *
  * Request body:
  *   { tenant_id: string, email: string, first_name: string, last_name: string }
  *
  * Response:
- *   { success: true, userId: "user_xxx" } or { success: false, error: "..." }
+ *   { success: true, userId: "uuid" } or { success: false, error: "..." }
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { clerkClient } from '@clerk/nextjs/server'
+import { createClient } from '@supabase/supabase-js'
 
 const PLATFORM_API_KEY = process.env.PLATFORM_SERVICE_API_KEY || ''
 const SAAS_ADMIN_URL = process.env.SAAS_ADMINISTRATION_SERVICE_URL || 'http://localhost:3001'
 const SAAS_API_KEY = process.env.PLATFORM_SERVICE_API_KEY || ''
+
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
 interface ProvisionFirstAdminRequest {
   tenant_id: string
@@ -34,13 +38,13 @@ interface ProvisionFirstAdminRequest {
 
 function syncUpsertToSaasAdmin(
   tenantId: string,
-  clerkUserId: string,
+  supabaseUserId: string,
   payload: Record<string, unknown>,
 ) {
   fetch(`${SAAS_ADMIN_URL}/api/v1/customer-portal/tenants/${tenantId}/users`, {
     method: 'POST',
     headers: { 'X-API-Key': SAAS_API_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ clerkUserId, ...payload }),
+    body: JSON.stringify({ supabaseUserId, ...payload }),
     signal: AbortSignal.timeout(5_000),
   }).catch((err) =>
     console.warn('[Provision First Admin] SaaS Admin sync failed (non-fatal):', err.message),
@@ -80,70 +84,51 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       )
     }
 
-    const client = await clerkClient()
+    const adminClient = getSupabaseAdmin()
 
-    const existingUsers = await client.users.getUserList({
-      emailAddress: [body.email],
-    })
-
-    if (existingUsers.data.length > 0) {
-      const existingUser = existingUsers.data[0]
-      const existingTenantId = existingUser.publicMetadata?.tenantId as string | undefined
-
-      if (existingTenantId === body.tenant_id) {
-        return NextResponse.json({
-          success: true,
-          userId: existingUser.id,
-          alreadyExisted: true,
-        })
-      }
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'User already exists with a different organization',
-        },
-        { status: 409 },
-      )
-    }
-
-    const newUser = await client.users.createUser({
-      emailAddress: [body.email],
-      firstName: body.first_name,
-      lastName: body.last_name,
-      publicMetadata: {
+    const newUser = await adminClient.auth.admin.createUser({
+      email: body.email,
+      password: crypto.randomUUID(),
+      email_confirm: true,
+      user_metadata: {
+        full_name: `${body.first_name} ${body.last_name}`,
         tenantId: body.tenant_id,
         role: body.role || 'admin',
         services: ['intake', 'settle', 'leverage', 'verify', 'customer_portal'],
         provisionedBy: 'saas_admin_onboarding_orchestrator',
         provisionedAt: new Date().toISOString(),
       },
-      skipPasswordRequirement: true,
-      skipPasswordChecks: true,
     })
 
+    if (newUser.error) {
+      console.error('[Provision First Admin] Supabase user creation error:', newUser.error)
+      return NextResponse.json(
+        { success: false, error: newUser.error.message || 'Failed to create user' },
+        { status: 400 },
+      )
+    }
+
     console.log(
-      `[Provision First Admin] Created Clerk user ${newUser.id} for tenant ${body.tenant_id}`,
+      `[Provision First Admin] Created Supabase user ${newUser.data.user?.id} for tenant ${body.tenant_id}`,
     )
 
-    syncUpsertToSaasAdmin(body.tenant_id, newUser.id, {
+    syncUpsertToSaasAdmin(body.tenant_id, newUser.data.user!.id, {
       servicesAssigned: ['intake', 'settle', 'leverage', 'verify', 'customer_portal'],
       practiceAreasAssigned: [],
     })
 
     return NextResponse.json({
       success: true,
-      userId: newUser.id,
+      userId: newUser.data.user!.id,
       alreadyExisted: false,
     })
   } catch (error: any) {
     console.error('[Provision First Admin] Error:', error)
 
-    if (error.errors) {
-      const clerkError = error.errors[0]
+    if (error.status === 409 || error.message?.includes('already')) {
       return NextResponse.json(
-        { success: false, error: clerkError?.message || 'Clerk API error' },
-        { status: 400 },
+        { success: false, error: 'User already exists with a different organization' },
+        { status: 409 },
       )
     }
 

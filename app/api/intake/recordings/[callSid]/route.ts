@@ -1,11 +1,11 @@
 /**
  * API Route: GET /api/intake/recordings/[callSid]
  * 
- * Fetches call recording by call_sid
+ * Proxies to INTAKE Tenant App API — no direct DB access.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { tenantDb } from '@/lib/db/tenant-db';
+import { getRecording } from '@/lib/api/intake-client';
 
 export async function GET(
   request: NextRequest,
@@ -14,12 +14,12 @@ export async function GET(
   try {
     const { callSid } = await params;
     
-    const recording = await tenantDb.getRecordingByCallSid(callSid);
+    const recording = await getRecording(callSid);
 
     if (!recording) {
       return NextResponse.json(
-        { error: 'Recording not found' },
-        { status: 404 }
+        { error: 'Recording not available — INTAKE projection API unreachable' },
+        { status: 503 }
       );
     }
 
@@ -27,8 +27,8 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching recording:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch recording', details: String(error) },
-      { status: 500 }
+      { error: 'Recording service unavailable' },
+      { status: 503 }
     );
   }
 }

@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const SETTLE_BACKEND = process.env.NEXT_PUBLIC_SETTLE_API_URL || 'http://localhost:3008';
-const SETTLE_API_KEY = process.env.NEXT_PUBLIC_SETTLE_API_KEY || '';
+const SETTLE_API_KEY = process.env.SETTLE_API_KEY || '';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;

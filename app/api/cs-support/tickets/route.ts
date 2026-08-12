@@ -3,13 +3,13 @@
  * GET  /api/cs-support/tickets  — list tickets for the authenticated customer
  * POST /api/cs-support/tickets  — create a new support ticket
  *
- * Security model: customer_email is sourced from the Clerk server-side session
+ * Security model: customer_email is sourced from the Supabase server-side session
  * (never trusted from client input) and forwarded to the First Line Support service
  * along with the service API key, which never leaves the server.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs/server';
+import { verifySupabaseJwt } from '@truevow/auth';
 
 const FLS_BASE = process.env.CUSTOMER_FIRST_LINE_SUPPORT_SERVICE_URL || 'http://localhost:3066';
 const FLS_API_KEY = process.env.CUSTOMER_FIRST_LINE_SUPPORT_SERVICE_API_KEY || '';
@@ -21,12 +21,24 @@ function flsHeaders() {
   };
 }
 
+async function getAuthUser(request: NextRequest): Promise<{ email: string | null; name: string | null } | null> {
+  const authHeader = request.headers.get('authorization');
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token) return null;
+  const ctx = await verifySupabaseJwt(token);
+  if (!ctx) return null;
+  return {
+    email: ctx.email,
+    name: (ctx as any).user_metadata?.full_name || null,
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const user = await currentUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const customerEmail = user.emailAddresses[0]?.emailAddress;
+    const customerEmail = authUser.email;
     if (!customerEmail) return NextResponse.json({ error: 'No email on account' }, { status: 400 });
 
     const sp = request.nextUrl.searchParams;
@@ -56,11 +68,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await currentUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authUser = await getAuthUser(request);
+    if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const customerEmail = user.emailAddresses[0]?.emailAddress;
-    const customerName = user.fullName || user.firstName || undefined;
+    const customerEmail = authUser.email;
+    const customerName = authUser.name;
     if (!customerEmail) return NextResponse.json({ error: 'No email on account' }, { status: 400 });
 
     const body = await request.json();

@@ -5,42 +5,45 @@
  * 
  * Allows tenant admin users to invite new team members (attorneys, paralegals, staff).
  * The invited user will:
- * 1. Be created in Clerk
- * 2. Have publicMetadata.tenantId set to the admin's tenant
- * 3. Have publicMetadata.role set based on request
- * 4. Receive an invitation email from Clerk
- * 
- * Architecture:
- * - First admin: Created manually by CSM in Clerk Dashboard
- * - Subsequent users: Created via this API endpoint
+ * 1. Be created in Supabase Auth
+ * 2. Have user_metadata.tenantId set to the admin's tenant
+ * 3. Have user_metadata.role set based on request
+ * 4. Receive an invitation email from Supabase
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, clerkClient } from '@clerk/nextjs/server';
+import { createClient } from '@supabase/supabase-js';
+import { verifySupabaseJwt } from '@truevow/auth';
 
 const SAAS_ADMIN_URL = process.env.SAAS_ADMINISTRATION_SERVICE_URL || 'http://localhost:3001';
 const SAAS_API_KEY  = process.env.PLATFORM_SERVICE_API_KEY || '';
 
-/** Fire-and-forget SaaS Admin upsert — non-breaking if it fails */
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
+
 function syncUpsertToSaasAdmin(
   tenantId: string,
-  clerkUserId: string,
+  supabaseUserId: string,
   payload: Record<string, unknown>
 ) {
   fetch(`${SAAS_ADMIN_URL}/api/v1/customer-portal/tenants/${tenantId}/users`, {
     method: 'POST',
     headers: { 'X-API-Key': SAAS_API_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ clerkUserId, ...payload }),
+    body: JSON.stringify({ supabaseUserId, ...payload }),
     signal: AbortSignal.timeout(5_000),
   }).catch(err =>
     console.warn('[Team Invite] SaaS Admin upsert failed (non-fatal):', err.message)
   );
 }
 
-/** Fire-and-forget SaaS Admin soft-delete — non-breaking if it fails */
-function syncDeleteToSaasAdmin(tenantId: string, clerkUserId: string) {
+function syncDeleteToSaasAdmin(tenantId: string, supabaseUserId: string) {
   fetch(
-    `${SAAS_ADMIN_URL}/api/v1/customer-portal/tenants/${tenantId}/users/${clerkUserId}`,
+    `${SAAS_ADMIN_URL}/api/v1/customer-portal/tenants/${tenantId}/users/${supabaseUserId}`,
     {
       method: 'DELETE',
       headers: { 'X-API-Key': SAAS_API_KEY },
@@ -60,14 +63,37 @@ interface InviteRequest {
   firstName?: string;
   lastName?: string;
   role: 'admin' | 'attorney' | 'paralegal' | 'staff';
-  services?: string[];       // e.g., ['intake', 'draft', 'settle']
-  practiceAreas?: string[];  // e.g., ['Personal Injury', 'Immigration']
+  services?: string[];
+  practiceAreas?: string[];
 }
 
 interface InviteResponse {
   success: boolean;
   userId?: string;
   error?: string;
+}
+
+// =============================================================================
+// JWT VERIFICATION
+// =============================================================================
+
+async function verifyRequestAuth(req: NextRequest): Promise<{ userId: string; tenantId: string; role: string } | null> {
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) return null;
+
+  const token = authHeader.slice(7);
+  const ctx = await verifySupabaseJwt(token);
+  if (!ctx) return null;
+
+  const metadata = (ctx as any).user_metadata ?? {};
+  const tenantId = metadata.tenantId as string | undefined;
+  if (!tenantId) return null;
+
+  return {
+    userId: ctx.sub,
+    tenantId,
+    role: (metadata.role as string) || 'staff',
+  };
 }
 
 // =============================================================================
@@ -82,7 +108,6 @@ function validateRequest(body: any): { valid: boolean; error?: string } {
     return { valid: false, error: 'Email is required' };
   }
 
-  // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(body.email)) {
     return { valid: false, error: 'Invalid email format' };
@@ -92,7 +117,6 @@ function validateRequest(body: any): { valid: boolean; error?: string } {
     return { valid: false, error: `Role must be one of: ${VALID_ROLES.join(', ')}` };
   }
 
-  // Validate services if provided
   if (body.services && Array.isArray(body.services)) {
     for (const service of body.services) {
       if (!VALID_SERVICES.includes(service as any)) {
@@ -105,35 +129,23 @@ function validateRequest(body: any): { valid: boolean; error?: string } {
 }
 
 // =============================================================================
-// API HANDLER
+// API HANDLER — POST (Invite)
 // =============================================================================
 
 export async function POST(request: NextRequest): Promise<NextResponse<InviteResponse>> {
   try {
-    // 1. Authenticate the requesting user
-    const { userId, sessionClaims } = await auth();
-    
-    if (!userId) {
+    const auth = await verifyRequestAuth(request);
+    if (!auth) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized - Please sign in' },
         { status: 401 }
       );
     }
 
-    // 2. Get tenant ID from the admin's session
-    const tenantId = sessionClaims?.tenantId as string | undefined;
-    
-    if (!tenantId) {
-      return NextResponse.json(
-        { success: false, error: 'No tenant associated with your account' },
-        { status: 403 }
-      );
-    }
+    const { userId, tenantId } = auth;
 
-    // 3. Parse and validate request body
     const body: InviteRequest = await request.json();
     const validation = validateRequest(body);
-    
     if (!validation.valid) {
       return NextResponse.json(
         { success: false, error: validation.error },
@@ -141,79 +153,52 @@ export async function POST(request: NextRequest): Promise<NextResponse<InviteRes
       );
     }
 
-    // 4. Check if user already exists
-    const client = await clerkClient();
-    const existingUsers = await client.users.getUserList({
-      emailAddress: [body.email],
-    });
+    const adminClient = getSupabaseAdmin();
 
-    if (existingUsers.data.length > 0) {
-      const existingUser = existingUsers.data[0];
-      
-      // Check if user is already in this tenant
-      const existingTenantId = existingUser.publicMetadata?.tenantId as string | undefined;
-      
-      if (existingTenantId === tenantId) {
-        return NextResponse.json(
-          { success: false, error: 'User already exists in your team' },
-          { status: 409 }
-        );
-      }
-      
-      // User exists but in different tenant
-      return NextResponse.json(
-        { success: false, error: 'User already exists with another organization' },
-        { status: 409 }
-      );
-    }
-
-    // 5. Create the user in Clerk
-    const newUser = await client.users.createUser({
-      emailAddress: [body.email],
-      firstName: body.firstName,
-      lastName: body.lastName,
-      publicMetadata: {
-        tenantId: tenantId,
+    const newUser = await adminClient.auth.admin.createUser({
+      email: body.email,
+      password: crypto.randomUUID(),
+      email_confirm: true,
+      user_metadata: {
+        full_name: [body.firstName, body.lastName].filter(Boolean).join(' ') || undefined,
+        tenantId,
         role: body.role,
         services: body.services || [],
         invitedBy: userId,
         invitedAt: new Date().toISOString(),
       },
-      // Skip password requirement - Clerk will send email to set password
-      skipPasswordRequirement: true,
-      // Skip password checks for invitation flow
-      skipPasswordChecks: true,
     });
 
-    // 6. Send invitation email (Clerk handles this automatically)
-    // The user will receive an email to set their password and join
+    if (newUser.error) {
+      console.error('[Team Invite] User creation error:', newUser.error);
 
-    console.log(`[Team Invite] Created user ${newUser.id} for tenant ${tenantId} with role ${body.role}`);
+      if (newUser.error.message?.includes('already')) {
+        return NextResponse.json(
+          { success: false, error: 'User already exists with another organization' },
+          { status: 409 }
+        );
+      }
 
-    // Sync tenant-scoped service config to SaaS Admin (fire-and-forget)
-    // Only sends configuration fields — PII (name, email, role) stays in Clerk.
-    syncUpsertToSaasAdmin(tenantId, newUser.id, {
+      return NextResponse.json(
+        { success: false, error: newUser.error.message || 'Failed to create user' },
+        { status: 400 }
+      );
+    }
+
+    console.log(`[Team Invite] Created user ${newUser.data.user?.id} for tenant ${tenantId} with role ${body.role}`);
+
+    syncUpsertToSaasAdmin(tenantId, newUser.data.user!.id, {
       servicesAssigned:      body.services || [],
       practiceAreasAssigned: body.practiceAreas || [],
     });
 
     return NextResponse.json({
       success: true,
-      userId: newUser.id,
+      userId: newUser.data.user!.id,
     });
 
   } catch (error: any) {
     console.error('[Team Invite] Error:', error);
-    
-    // Handle specific Clerk errors
-    if (error.errors) {
-      const clerkError = error.errors[0];
-      return NextResponse.json(
-        { success: false, error: clerkError?.message || 'Clerk API error' },
-        { status: 400 }
-      );
-    }
-
     return NextResponse.json(
       { success: false, error: 'Failed to send invitation' },
       { status: 500 }
@@ -222,33 +207,21 @@ export async function POST(request: NextRequest): Promise<NextResponse<InviteRes
 }
 
 // =============================================================================
-// DELETE HANDLER - Remove team member
+// DELETE HANDLER — Remove team member
 // =============================================================================
 
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
   try {
-    // 1. Authenticate the requesting user
-    const { userId, sessionClaims } = await auth();
-    
-    if (!userId) {
+    const auth = await verifyRequestAuth(request);
+    if (!auth) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized - Please sign in' },
         { status: 401 }
       );
     }
 
-    // 2. Get tenant ID from the admin's session
-    const tenantId = sessionClaims?.tenantId as string | undefined;
-    const adminRole = sessionClaims?.role as string | undefined;
-    
-    if (!tenantId) {
-      return NextResponse.json(
-        { success: false, error: 'No tenant associated with your account' },
-        { status: 403 }
-      );
-    }
+    const { userId, tenantId, role: adminRole } = auth;
 
-    // Only admins can remove team members
     if (adminRole !== 'admin') {
       return NextResponse.json(
         { success: false, error: 'Only admins can remove team members' },
@@ -256,10 +229,9 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // 3. Get user ID to remove from request body
     const body = await request.json();
     const { userId: userIdToRemove } = body;
-    
+
     if (!userIdToRemove) {
       return NextResponse.json(
         { success: false, error: 'User ID is required' },
@@ -267,7 +239,6 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Prevent self-removal
     if (userIdToRemove === userId) {
       return NextResponse.json(
         { success: false, error: 'Cannot remove yourself' },
@@ -275,21 +246,26 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // 4. Verify the user belongs to this tenant
-    const client = await clerkClient();
-    const userToRemove = await client.users.getUser(userIdToRemove);
-    
-    if (userToRemove.publicMetadata?.tenantId !== tenantId) {
+    const adminClient = getSupabaseAdmin();
+
+    const { data: userToRemove, error: getUserError } = await adminClient.auth.admin.getUserById(userIdToRemove);
+
+    if (getUserError || !userToRemove?.user) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    if (userToRemove.user.user_metadata?.tenantId !== tenantId) {
       return NextResponse.json(
         { success: false, error: 'User not found in your team' },
         { status: 404 }
       );
     }
 
-    // 5. Delete the user
-    await client.users.deleteUser(userIdToRemove);
+    await adminClient.auth.admin.deleteUser(userIdToRemove);
 
-    // Sync soft-delete to SaaS Admin tenant_users (fire-and-forget)
     syncDeleteToSaasAdmin(tenantId, userIdToRemove);
 
     console.log(`[Team Remove] Deleted user ${userIdToRemove} from tenant ${tenantId}`);
@@ -301,7 +277,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
 
   } catch (error: any) {
     console.error('[Team Remove] Error:', error);
-    
+
     if (error.status === 404) {
       return NextResponse.json(
         { success: false, error: 'User not found' },
@@ -316,57 +292,53 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-export async function GET(): Promise<NextResponse> {
+// =============================================================================
+// GET HANDLER — List team members
+// =============================================================================
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    // 1. Authenticate the requesting user
-    const { userId, sessionClaims } = await auth();
-    
-    if (!userId) {
+    const auth = await verifyRequestAuth(request);
+    if (!auth) {
       return NextResponse.json(
         { error: 'Unauthorized - Please sign in' },
         { status: 401 }
       );
     }
 
-    // 2. Get tenant ID from the admin's session
-    const tenantId = sessionClaims?.tenantId as string | undefined;
-    
-    if (!tenantId) {
+    const { tenantId } = auth;
+
+    const adminClient = getSupabaseAdmin();
+
+    const { data, error } = await adminClient.auth.admin.listUsers({
+      perPage: 100,
+    });
+
+    if (error) {
+      console.error('[Team List] Error:', error);
       return NextResponse.json(
-        { error: 'No tenant associated with your account' },
-        { status: 403 }
+        { error: 'Failed to fetch team members' },
+        { status: 500 }
       );
     }
 
-    // 3. Get all users in this tenant
-    const client = await clerkClient();
-    const users = await client.users.getUserList({
-      // Note: Clerk doesn't support filtering by publicMetadata directly
-      // We need to fetch and filter client-side
-      limit: 100,
-    });
-
-    // Filter users by tenant
-    const tenantUsers = users.data.filter(
-      user => user.publicMetadata?.tenantId === tenantId
+    const tenantUsers = (data?.users || []).filter(
+      user => user.user_metadata?.tenantId === tenantId
     );
 
-    // Map to team member format
     const teamMembers = tenantUsers.map(user => ({
       id: user.id,
-      email: user.emailAddresses[0]?.emailAddress || '',
-      firstName: user.firstName,
-      lastName: user.lastName,
-      fullName: user.firstName && user.lastName 
-        ? `${user.firstName} ${user.lastName}` 
-        : user.firstName || user.lastName || '',
-      role: user.publicMetadata?.role || 'staff',
-      services: user.publicMetadata?.services || [],
-      invitedBy: user.publicMetadata?.invitedBy,
-      invitedAt: user.publicMetadata?.invitedAt,
-      createdAt: user.createdAt,
-      lastSignInAt: user.lastSignInAt,
-      imageUrl: user.imageUrl,
+      email: user.email || '',
+      firstName: user.user_metadata?.first_name || null,
+      lastName: user.user_metadata?.last_name || null,
+      fullName: user.user_metadata?.full_name || user.email || '',
+      role: user.user_metadata?.role || 'staff',
+      services: user.user_metadata?.services || [],
+      invitedBy: user.user_metadata?.invitedBy,
+      invitedAt: user.user_metadata?.invitedAt,
+      createdAt: user.created_at,
+      lastSignInAt: user.last_sign_in_at,
+      imageUrl: user.user_metadata?.avatar_url || null,
     }));
 
     return NextResponse.json({

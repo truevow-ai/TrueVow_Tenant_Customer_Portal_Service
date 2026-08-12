@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { UserButton, useUser } from '@clerk/nextjs';
+import { useAuth, useUser } from '@truevow/auth';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
@@ -41,6 +41,7 @@ function DashboardLayoutContent({
   const { features, isLoading: featuresLoading, hasFeature, tier } = useFeatureAccess();
   const { theme, toggleTheme } = useTheme();
   const { user } = useUser();
+  const { signOut } = useAuth();
   const pathname = usePathname();
 
   // Fire session_started once on mount
@@ -65,8 +66,7 @@ function DashboardLayoutContent({
     track('page_viewed', 'SESSION', { page_path: pathname });
   }, [pathname]);
   
-  // Display the Clerk user's full name (best practice â€” no suffix)
-  const displayName = user?.fullName || user?.firstName || 'Admin';
+  const displayName = user?.user_metadata?.full_name || user?.fullName || user?.firstName || user?.email || 'User';
 
   // Determine which services to show based on subscription and phase
   // Phase I: INTAKE only (CONNECT retracted)
@@ -202,19 +202,20 @@ function DashboardLayoutContent({
           
           <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
             <div className="flex-shrink-0">
-              <UserButton 
-                afterSignOutUrl="/"
-                appearance={{
-                  elements: {
-                    userButtonTrigger: "focus:shadow-none"
-                  }
-                }}
-              />
+              <button
+                onClick={() => signOut()}
+                className="w-8 h-8 rounded-full bg-sidebar-active flex items-center justify-center text-sidebar-text-muted hover:text-sidebar-text hover:bg-sidebar/40 transition-colors"
+                title="Sign Out"
+              >
+                <span className="text-xs font-semibold">
+                  {displayName?.charAt(0)?.toUpperCase() || 'U'}
+                </span>
+              </button>
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-sidebar-text truncate">{displayName}</p>
-                <p className="text-xs text-sidebar-text-muted">Click avatar for options</p>
+                <p className="text-xs text-sidebar-text-muted">Click avatar to sign out</p>
               </div>
             )}
           </div>

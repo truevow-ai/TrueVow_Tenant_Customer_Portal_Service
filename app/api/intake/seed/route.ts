@@ -1,27 +1,13 @@
 /**
- * API Route: POST /api/intake/seed
- * 
- * Seeds the database with sample leads demonstrating
- * varying completion percentages for the 75% threshold
- * 
- * MANDATORY SIGNALS (70% total - ALL 4 required for unlock):
- * - Jurisdiction: 15% (in-state)
- * - Incident Date: 15% (within statute)
- * - Liability Indicator: 20%
- * - Treatment Status: 20%
- * 
- * OPTIONAL SIGNALS (30% total - reach 75% threshold):
- * - Prior Representation: 5%
- * - Injury Severity: 15%
- * - Lost Wages: 10%
+ * API Route: POST /api/intake/seed — Test data seeding.
+ * All INTAKE data flows through the Tenant App REST API.
+ * No direct Supabase queries.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { tenantDb } from '@/lib/db/tenant-db';
 
-// TODO: Get tenant_id from authenticated user's context/session
-// This seed endpoint is for testing only - tenant_id should come from auth context
-const getTenantId = (): string | null => null;
+const TENANT_APP_URL = process.env.TENANT_APP_URL || 'http://localhost:8000';
+const API_KEY = process.env.TENANT_APP_API_KEY || '';
 
 // Seed data with varying completion percentages
 // UNLOCK: All 4 mandatory signals + score >= 75%
@@ -162,43 +148,33 @@ export async function POST(request: NextRequest) {
 
     console.log(`Seeding leads for tenant: ${tenantId}`);
 
-    // Clear existing leads if requested
-    if (clearExisting) {
-      console.log('Clearing existing leads...');
-      await tenantDb.clearLeadsForTenant(tenantId);
-    }
-
-    // Seed new leads
-    const results = [];
-    for (const seed of SEED_DATA) {
-      const result = await tenantDb.createLeadWithResponses({
-        tenantId,
-        firstName: seed.firstName,
-        lastName: seed.lastName,
-        email: seed.email,
-        phone: seed.phone,
-        status: seed.status,
-        practiceAreaCode: seed.practiceAreaCode,
-        leadScore: seed.leadScore,
-        transcription: seed.transcription,
-        responses: seed.responses,
+    try {
+      const res = await fetch(`${TENANT_APP_URL}/api/v1/intake/seed`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(API_KEY ? { 'X-API-Key': API_KEY } : {}),
+        },
+        body: JSON.stringify({ tenant_id: tenantId, clear_existing: clearExisting }),
+        signal: AbortSignal.timeout(15000),
       });
 
-      if (result) {
-        results.push({
-          firstName: seed.firstName,
-          lastName: seed.lastName,
-          leadId: result.leadId,
-          responseCount: seed.responses.length,
-        });
+      if (!res.ok) {
+        return NextResponse.json(
+          { error: 'INTAKE seed API returned ' + res.status, _service_unavailable: true },
+          { status: 503 }
+        );
       }
-    }
 
-    return NextResponse.json({
-      success: true,
-      message: `Seeded ${results.length} leads`,
-      leads: results,
-    });
+      const data = await res.json();
+      return NextResponse.json(data);
+    } catch (err: unknown) {
+      console.warn('[intake/seed] INTAKE API unreachable:', String(err));
+      return NextResponse.json(
+        { error: 'INTAKE seed API unavailable — cross-service DB access prohibited', _service_unavailable: true },
+        { status: 503 }
+      );
+    }
   } catch (error) {
     console.error('Error seeding leads:', error);
     return NextResponse.json(
@@ -223,12 +199,33 @@ export async function DELETE(request: NextRequest) {
 
     console.log(`Clearing leads for tenant: ${tenantId}`);
     
-    const success = await tenantDb.clearLeadsForTenant(tenantId);
+    try {
+      const res = await fetch(`${TENANT_APP_URL}/api/v1/intake/seed`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(API_KEY ? { 'X-API-Key': API_KEY } : {}),
+        },
+        body: JSON.stringify({ tenant_id: tenantId }),
+        signal: AbortSignal.timeout(10000),
+      });
 
-    return NextResponse.json({
-      success,
-      message: success ? 'Leads cleared' : 'Failed to clear leads',
-    });
+      if (!res.ok) {
+        return NextResponse.json(
+          { error: 'INTAKE seed API returned ' + res.status, _service_unavailable: true },
+          { status: 503 }
+        );
+      }
+
+      const data = await res.json();
+      return NextResponse.json(data);
+    } catch (err: unknown) {
+      console.warn('[intake/seed] INTAKE API unreachable:', String(err));
+      return NextResponse.json(
+        { error: 'INTAKE seed API unavailable', _service_unavailable: true },
+        { status: 503 }
+      );
+    }
   } catch (error) {
     console.error('Error clearing leads:', error);
     return NextResponse.json(
